@@ -1,21 +1,47 @@
 module.exports = {
   testEnvironment: 'node',
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+  roots: ['<rootDir>/tests'],
   testMatch: [
-    '**/tests/**/*.test.js',
-    '**/__tests__/**/*.test.js',
-    '**/*.test.js'
+    '**/__tests__/**/*.(js|ts)',
+    '**/*.(test|spec).(js|ts)'
   ],
   collectCoverage: true,
   coverageDirectory: 'coverage',
   coveragePathIgnorePatterns: [
     '/node_modules/',
-    '/uploads/',
-    '/scripts/',
-    '/config/'
+    '/tests/',
+    '/coverage/',
+    '/logs/',
+    '/uploads/'
   ],
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+  coverageThreshold: {
+    global: {
+      branches: 70,
+      functions: 75,
+      lines: 80,
+      statements: 80
+    }
+  },
   testTimeout: 30000,
   verbose: true,
-  forceExit: true,
-  detectOpenHandles: true
+  // Clear mocks between tests
+  clearMocks: true,
+  resetMocks: true,
+  restoreMocks: true,
+  // Simplified setup without MongoDB Memory Server
+  // globalSetup: '<rootDir>/tests/globalSetup.js',
+  // globalTeardown: '<rootDir>/tests/globalTeardown.js',
+  // Transform ES modules
+  transform: {
+    '^.+\\.jsx?$': 'babel-jest',
+  },
+  // Module file extensions
+  moduleFileExtensions: ['js', 'json', 'jsx', 'ts', 'tsx'],
+  // Test files to ignore
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/build/',
+    '/dist/'
+  ]
 };

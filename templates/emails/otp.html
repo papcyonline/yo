@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Verification Code</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        @media screen and (max-width: 600px) {
+            .container { width: 100% !important; }
+            .content { padding: 20px !important; }
+            .otp-code { font-size: 32px !important; letter-spacing: 8px !important; }
+        }
+    </style>
+</head>
+<body style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; margin: 0; padding: 0;">
+    
+    <table width="100%" cellpadding="0" cellspacing="0" style="min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                
+                <!-- Logo -->
+                <div style="margin-bottom: 30px;">
+                    <div style="display: inline-block; background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px); border-radius: 20px; padding: 20px 40px; border: 2px solid rgba(255, 255, 255, 0.2);">
+                        <h1 style="color: #ffffff; font-size: 42px; font-weight: 800; margin: 0;">
+                            Yo<span style="color: #ffd700;">!</span>
+                        </h1>
+                    </div>
+                </div>
+                
+                <!-- Main Card -->
+                <table class="container" width="600" style="max-width: 600px; background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                    
+                    <!-- Animated Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; text-align: center;">
+                            <div style="width: 80px; height: 80px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+                                <div style="width: 60px; height: 60px; background: rgba(255, 255, 255, 0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                    <span style="font-size: 30px;">🔐</span>
+                                </div>
+                            </div>
+                            <h2 style="color: #ffffff; font-size: 28px; font-weight: 700; margin: 0;">
+                                Verification Code
+                            </h2>
+                            <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px; margin-top: 10px;">
+                                Please use the code below to verify your identity
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td class="content" style="padding: 40px;">
+                            
+                            <!-- Greeting -->
+                            <p style="color: #2d3748; font-size: 18px; font-weight: 600; margin-bottom: 20px;">
+                                Hello {{userName}},
+                            </p>
+                            
+                            <p style="color: #4a5568; font-size: 16px; line-height: 24px; margin-bottom: 30px;">
+                                We received a request to verify your {{verificationType}}. Enter this code to continue:
+                            </p>
+                            
+                            <!-- OTP Code Box -->
+                            <div style="background: linear-gradient(135deg, #f6f9fc 0%, #e9ecef 100%); border: 2px dashed #667eea; border-radius: 16px; padding: 30px; text-align: center; margin-bottom: 30px;">
+                                <p style="color: #667eea; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; font-weight: 600;">
+                                    Your Verification Code
+                                </p>
+                                <div class="otp-code" style="font-size: 42px; font-weight: 800; letter-spacing: 12px; color: #2d3748; font-family: 'Courier New', monospace; background: #ffffff; padding: 15px; border-radius: 8px; display: inline-block; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                                    {{otpCode}}
+                                </div>
+                                <p style="color: #718096; font-size: 14px; margin-top: 15px;">
+                                    Valid for <strong style="color: #e53e3e;">{{expiryTime}} minutes</strong>
+                                </p>
+                            </div>
+                            
+                            <!-- Alternative Entry Method -->
+                            <div style="background: #f7fafc; border-radius: 12px; padding: 20px; margin-bottom: 30px;">
+                                <p style="color: #4a5568; font-size: 14px; line-height: 20px; margin-bottom: 15px;">
+                                    <strong>Or click the button below to verify automatically:</strong>
+                                </p>
+                                <a href="{{verificationLink}}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); transition: transform 0.2s;">
+                                    Verify Now
+                                </a>
+                            </div>
+                            
+                            <!-- Security Tips -->
+                            <div style="background: #fff5f5; border-left: 4px solid #fc8181; padding: 15px; border-radius: 8px; margin-bottom: 30px;">
+                                <p style="color: #c53030; font-weight: 600; font-size: 14px; margin-bottom: 8px;">
+                                    🔒 Security Tips:
+                                </p>
+                                <ul style="color: #742a2a; font-size: 14px; line-height: 20px; margin-left: 20px;">
+                                    <li>Never share this code with anyone</li>
+                                    <li>Yo! staff will never ask for this code</li>
+                                    <li>This code will expire in {{expiryTime}} minutes</li>
+                                </ul>
+                            </div>
+                            
+                            <!-- Didn't Request Section -->
+                            <div style="background: #f7fafc; border-radius: 12px; padding: 20px; text-align: center;">
+                                <p style="color: #4a5568; font-size: 14px; line-height: 20px;">
+                                    Didn't request this code?<br>
+                                    <a href="{{reportLink}}" style="color: #e53e3e; font-weight: 600; text-decoration: none;">Report suspicious activity</a> • 
+                                    <a href="{{secureAccountLink}}" style="color: #667eea; font-weight: 600; text-decoration: none;">Secure your account</a>
+                                </p>
+                            </div>
+                            
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background: #f8f9fa; padding: 30px; text-align: center;">
+                            <p style="color: #718096; font-size: 12px; line-height: 18px; margin-bottom: 10px;">
+                                This is an automated message from Yo! Family App.<br>
+                                Please do not reply to this email.
+                            </p>
+                            <p style="color: #a0aec0; font-size: 11px;">
+                                © 2024 Yo! Family App • <a href="{{privacyUrl}}" style="color: #667eea; text-decoration: none;">Privacy</a> • <a href="{{termsUrl}}" style="color: #667eea; text-decoration: none;">Terms</a>
+                            </p>
+                        </td>
+                    </tr>
+                    
+                </table>
+                
+                <!-- Email Authentication -->
+                <table width="600" style="max-width: 600px; margin-top: 20px;">
+                    <tr>
+                        <td align="center">
+                            <p style="color: rgba(255, 255, 255, 0.8); font-size: 11px; line-height: 16px;">
+                                This email was sent to {{userEmail}}<br>
+                                From: Yo! Family App Security • Time: {{timestamp}}<br>
+                                IP Address: {{ipAddress}} • Location: {{location}}
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+                
+            </td>
+        </tr>
+    </table>
+    
+</body>
+</html>

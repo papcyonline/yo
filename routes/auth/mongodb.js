@@ -2,8 +2,12 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { User } = require('../../models');
+const { validate, sanitizeInput } = require('../../middleware/validation');
 
 const router = express.Router();
+
+// Apply input sanitization to all routes
+router.use(sanitizeInput);
 
 // Initialize Twilio
 const twilio = require('twilio');
@@ -28,17 +32,88 @@ async function sendSMS(phone, message) {
   }
 }
 
-// Generate JWT token
+// Generate JWT token pair (access + refresh)
+const generateTokenPair = (userId) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured. Please set it in your environment variables.');
+  }
+  
+  const accessToken = jwt.sign(
+    { userId, type: 'access' },
+    process.env.JWT_SECRET,
+    { expiresIn: '15m' } // Short-lived access token
+  );
+
+  const refreshToken = jwt.sign(
+    { userId, type: 'refresh' },
+    process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
+    { expiresIn: '7d' } // Long-lived refresh token
+  );
+
+  return { accessToken, refreshToken };
+};
+
+// Legacy function for backward compatibility
 const generateToken = (userId) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured. Please set it in your environment variables.');
+  }
+  
   return jwt.sign(
     { userId },
-    process.env.JWT_SECRET || 'your-secret-key',
+    process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
 };
 
-// Login route
-router.post('/login', async (req, res) => {
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: User login
+ *     description: Authenticate user with email/phone and password
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           examples:
+ *             emailLogin:
+ *               summary: Login with email
+ *               value:
+ *                 email: user@example.com
+ *                 password: securePassword123
+ *             phoneLogin:
+ *               summary: Login with phone
+ *               value:
+ *                 phone: +1234567890
+ *                 password: securePassword123
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       401:
+ *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Invalid credentials
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ */
+router.post('/login', validate('login'), async (req, res) => {
   try {
     const { email, phone, password } = req.body;
     
@@ -76,8 +151,8 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Generate token
-    const token = generateToken(user._id);
+    // Generate token pair
+    const { accessToken, refreshToken } = generateTokenPair(user._id);
     
     console.log(`✅ Login successful for user: ${user._id}`);
 
@@ -85,14 +160,21 @@ router.post('/login', async (req, res) => {
       success: true,
       message: 'Login successful',
       data: {
-        token,
+        token: accessToken, // For backward compatibility
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_in: 15 * 60, // 15 minutes in seconds
+        token_type: 'Bearer',
         user: {
           id: user._id,
           first_name: user.first_name,
           last_name: user.last_name,
           email: user.email,
           phone: user.phone,
-          profile_photo_url: user.profile_photo_url
+          profile_photo_url: user.profile_photo_url,
+          email_verified: user.email_verified,
+          phone_verified: user.phone_verified,
+          profile_completion_percentage: user.profile_completion_percentage
         }
       }
     });
@@ -1066,6 +1148,170 @@ router.post('/logout', authMiddleware, async (req, res) => {
       message: 'Logout failed'
     });
   }
+});
+
+/**
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Refresh access token
+ *     description: Get a new access token using a valid refresh token
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [refresh_token]
+ *             properties:
+ *               refresh_token:
+ *                 type: string
+ *                 description: Valid refresh token
+ *     responses:
+ *       200:
+ *         description: Token refreshed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     access_token:
+ *                       type: string
+ *                     token_type:
+ *                       type: string
+ *                       example: Bearer
+ *                     expires_in:
+ *                       type: number
+ *                       example: 900
+ *       401:
+ *         description: Invalid or expired refresh token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Invalid refresh token
+ */
+router.post('/refresh', async (req, res) => {
+  try {
+    const { refresh_token } = req.body;
+
+    if (!refresh_token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Refresh token is required'
+      });
+    }
+
+    // Verify refresh token
+    const decoded = jwt.verify(refresh_token, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
+
+    if (decoded.type !== 'refresh') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token type'
+      });
+    }
+
+    // Check if user still exists and is active
+    const user = await User.findById(decoded.userId).select('is_active');
+    if (!user || !user.is_active) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found or deactivated'
+      });
+    }
+
+    // Generate new access token
+    const newAccessToken = jwt.sign(
+      { userId: decoded.userId, type: 'access' },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    console.log(`🔄 Token refreshed for user: ${decoded.userId}`);
+
+    res.json({
+      success: true,
+      message: 'Token refreshed successfully',
+      data: {
+        access_token: newAccessToken,
+        token_type: 'Bearer',
+        expires_in: 15 * 60 // 15 minutes in seconds
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Token refresh error:', error);
+
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid refresh token'
+      });
+    }
+
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Refresh token expired'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Token refresh failed'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Logout user
+ *     description: Invalidate user session (client should discard tokens)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Logged out successfully
+ */
+router.post('/logout', async (req, res) => {
+  // For JWT tokens, logout is typically handled client-side by discarding tokens
+  // In a more advanced implementation, you would maintain a blacklist of tokens
+  
+  console.log('🔓 User logout');
+  
+  res.json({
+    success: true,
+    message: 'Logged out successfully'
+  });
 });
 
 module.exports = router;

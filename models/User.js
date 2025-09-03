@@ -6,7 +6,8 @@ const userSchema = new mongoose.Schema({
     type: String, 
     unique: true, 
     sparse: true, // Allow null values but maintain uniqueness
-    lowercase: true 
+    lowercase: true,
+    trim: true
   },
   phone: { 
     type: String, 
@@ -303,10 +304,16 @@ userSchema.index({ profession: 1, location: 1 }); // Profession + location filte
 userSchema.index({ interests: 1, location: 1 }); // Interests + location filter
 
 // Pre-save middleware
-userSchema.pre('save', function(next) {
+userSchema.pre('save', async function(next) {
   // Update full_name if first_name or last_name changed
   if (this.isModified('first_name') || this.isModified('last_name')) {
     this.full_name = `${this.first_name || ''} ${this.last_name || ''}`.trim();
+  }
+  
+  // Hash password if it's modified and not already hashed
+  if (this.isModified('password_hash') && this.password_hash && !this.password_hash.startsWith('$2')) {
+    const bcrypt = require('bcryptjs');
+    this.password_hash = await bcrypt.hash(this.password_hash, 10);
   }
   
   // Calculate profile completion percentage
@@ -375,6 +382,17 @@ userSchema.methods.toSafeJSON = function() {
   userObject.onboarding_responses = this.onboarding_responses || {};
   
   return userObject;
+};
+
+// Password methods for authentication
+userSchema.methods.hashPassword = async function(password) {
+  const bcrypt = require('bcryptjs');
+  this.password_hash = await bcrypt.hash(password, 10);
+};
+
+userSchema.methods.comparePassword = async function(password) {
+  const bcrypt = require('bcryptjs');
+  return bcrypt.compare(password, this.password_hash);
 };
 
 const User = mongoose.model('User', userSchema);

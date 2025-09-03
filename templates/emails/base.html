@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>{{subject}}</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style>
+        /* Reset styles */
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+        
+        /* Remove default styling */
+        body { margin: 0 !important; padding: 0 !important; width: 100% !important; min-width: 100% !important; }
+        
+        /* Mobile styles */
+        @media screen and (max-width: 600px) {
+            .mobile-hide { display: none !important; }
+            .mobile-center { text-align: center !important; }
+            .container { width: 100% !important; max-width: 100% !important; }
+            .content { width: 100% !important; padding: 20px !important; }
+            .button { width: 100% !important; max-width: 300px !important; }
+            h1 { font-size: 28px !important; }
+            h2 { font-size: 24px !important; }
+            .footer { padding: 20px !important; }
+        }
+        
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            .dark-mode-bg { background-color: #1a1a1a !important; }
+            .dark-mode-text { color: #ffffff !important; }
+            .dark-mode-card { background-color: #2d2d2d !important; }
+        }
+        
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-fade { animation: fadeIn 0.5s ease-out; }
+    </style>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh;">
+    
+    <!-- Preview Text -->
+    <div style="display: none; font-size: 1px; color: #fefefe; line-height: 1px; font-family: Arial, sans-serif; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
+        {{previewText}}
+    </div>
+    
+    <!-- Email Container -->
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh;">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                
+                <!-- Logo Section -->
+                <table class="container" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px;">
+                    <tr>
+                        <td align="center" style="padding-bottom: 30px;">
+                            <div style="display: inline-block; padding: 15px 30px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border-radius: 50px; border: 2px solid rgba(255, 255, 255, 0.2);">
+                                <h1 style="margin: 0; color: #ffffff; font-size: 36px; font-weight: 800; letter-spacing: -1px; text-shadow: 2px 2px 4px rgba(0,0,0,0.1);">
+                                    Yo<span style="color: #ffd700;">!</span>
+                                </h1>
+                                <p style="margin: 5px 0 0 0; color: rgba(255, 255, 255, 0.9); font-size: 12px; text-transform: uppercase; letter-spacing: 2px;">
+                                    Family Connections
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+                
+                <!-- Main Content Card -->
+                <table class="container" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background: #ffffff; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;">
+                    <tr>
+                        <td>
+                            <!-- Content Header Gradient -->
+                            <div style="height: 5px; background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%);"></div>
+                            
+                            <!-- Main Content Area -->
+                            <div class="content" style="padding: 40px;">
+                                {{content}}
+                            </div>
+                            
+                            <!-- Footer Separator -->
+                            <div style="height: 1px; background: linear-gradient(90deg, transparent, #e0e0e0, transparent); margin: 0 40px;"></div>
+                            
+                            <!-- Footer -->
+                            <div class="footer" style="padding: 30px 40px; background: #f8f9fa;">
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                    <tr>
+                                        <td align="center">
+                                            <!-- Social Icons -->
+                                            <table border="0" cellspacing="0" cellpadding="0">
+                                                <tr>
+                                                    <td style="padding: 0 10px;">
+                                                        <a href="#" style="display: inline-block; width: 36px; height: 36px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; text-align: center; line-height: 36px; text-decoration: none;">
+                                                            <img src="https://img.icons8.com/ios-filled/50/ffffff/facebook-new.png" width="20" height="20" alt="Facebook" style="vertical-align: middle;">
+                                                        </a>
+                                                    </td>
+                                                    <td style="padding: 0 10px;">
+                                                        <a href="#" style="display: inline-block; width: 36px; height: 36px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; text-align: center; line-height: 36px; text-decoration: none;">
+                                                            <img src="https://img.icons8.com/ios-filled/50/ffffff/twitter.png" width="20" height="20" alt="Twitter" style="vertical-align: middle;">
+                                                        </a>
+                                                    </td>
+                                                    <td style="padding: 0 10px;">
+                                                        <a href="#" style="display: inline-block; width: 36px; height: 36px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; text-align: center; line-height: 36px; text-decoration: none;">
+                                                            <img src="https://img.icons8.com/ios-filled/50/ffffff/instagram-new.png" width="20" height="20" alt="Instagram" style="vertical-align: middle;">
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                            
+                                            <!-- Footer Text -->
+                                            <p style="margin: 20px 0 10px 0; color: #6c757d; font-size: 14px; line-height: 21px;">
+                                                © 2024 Yo! Family App. All rights reserved.
+                                            </p>
+                                            <p style="margin: 0; color: #6c757d; font-size: 12px; line-height: 18px;">
+                                                You received this email because you're registered with Yo! Family App.<br>
+                                                <a href="{{unsubscribeUrl}}" style="color: #667eea; text-decoration: none;">Unsubscribe</a> • 
+                                                <a href="{{preferencesUrl}}" style="color: #667eea; text-decoration: none;">Email Preferences</a> • 
+                                                <a href="{{helpUrl}}" style="color: #667eea; text-decoration: none;">Get Help</a>
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+                
+                <!-- Security Notice -->
+                <table class="container" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; margin-top: 20px;">
+                    <tr>
+                        <td align="center">
+                            <p style="margin: 0; color: rgba(255, 255, 255, 0.8); font-size: 12px; line-height: 18px;">
+                                🔒 This is a secure email from Yo! Family App<br>
+                                Never share your personal information or passwords via email
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+                
+            </td>
+        </tr>
+    </table>
+    
+</body>
+</html>

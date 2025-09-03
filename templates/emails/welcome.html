@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Yo! Family</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        @media screen and (max-width: 600px) {
+            .container { width: 100% !important; }
+            .content { padding: 20px !important; }
+        }
+    </style>
+</head>
+<body style="font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; margin: 0; padding: 0;">
+    
+    <table width="100%" cellpadding="0" cellspacing="0" style="min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                
+                <!-- Main Card -->
+                <table class="container" width="600" style="max-width: 600px; background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                    
+                    <!-- Hero Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; text-align: center;">
+                            <h1 style="color: #ffffff; font-size: 48px; font-weight: 800; margin: 0 0 10px 0;">
+                                Yo<span style="color: #ffd700;">!</span>
+                            </h1>
+                            <p style="color: rgba(255, 255, 255, 0.9); font-size: 18px; margin: 0;">
+                                Welcome to the Family
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td class="content" style="padding: 40px;">
+                            
+                            <h2 style="color: #2d3748; font-size: 28px; font-weight: 700; margin-bottom: 20px; text-align: center;">
+                                🎉 Welcome, {{firstName}}!
+                            </h2>
+                            
+                            <p style="color: #4a5568; font-size: 18px; line-height: 28px; margin-bottom: 30px; text-align: center;">
+                                We're thrilled to have you join our community of families connecting across the globe.
+                            </p>
+                            
+                            <!-- Features Grid -->
+                            <div style="margin-bottom: 40px;">
+                                <table width="100%" cellpadding="0" cellspacing="0">
+                                    <tr>
+                                        <td style="padding: 20px; background: #f8f9ff; border-radius: 12px; margin-bottom: 15px;">
+                                            <h3 style="color: #667eea; font-size: 18px; font-weight: 600; margin: 0 0 8px 0;">
+                                                🔍 AI-Powered Matching
+                                            </h3>
+                                            <p style="color: #4a5568; font-size: 14px; line-height: 20px; margin: 0;">
+                                                Find your long-lost relatives with our advanced AI technology
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+                                
+                                <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 15px;">
+                                    <tr>
+                                        <td width="50%" style="padding-right: 8px;">
+                                            <div style="background: #f0fff4; border-radius: 12px; padding: 20px;">
+                                                <h4 style="color: #38a169; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">
+                                                    💬 Family Chat
+                                                </h4>
+                                                <p style="color: #4a5568; font-size: 13px; line-height: 18px; margin: 0;">
+                                                    Stay connected with real-time messaging
+                                                </p>
+                                            </div>
+                                        </td>
+                                        <td width="50%" style="padding-left: 8px;">
+                                            <div style="background: #fef5e7; border-radius: 12px; padding: 20px;">
+                                                <h4 style="color: #d69e2e; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">
+                                                    🌍 Global Network
+                                                </h4>
+                                                <p style="color: #4a5568; font-size: 13px; line-height: 18px; margin: 0;">
+                                                    Connect with families worldwide
+                                                </p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                            
+                            <!-- Next Steps -->
+                            <div style="background: linear-gradient(135deg, #f6f9fc 0%, #e9ecef 100%); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
+                                <h3 style="color: #2d3748; font-size: 20px; font-weight: 600; margin: 0 0 20px 0; text-align: center;">
+                                    🚀 Get Started in 3 Easy Steps
+                                </h3>
+                                
+                                <div style="margin-bottom: 20px;">
+                                    <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                                        <div style="width: 32px; height: 32px; background: #667eea; color: white; border-radius: 50%; text-align: center; line-height: 32px; font-weight: 600; margin-right: 15px;">1</div>
+                                        <div>
+                                            <strong style="color: #2d3748; font-size: 16px;">Complete Your Profile</strong>
+                                            <p style="color: #4a5568; font-size: 14px; margin: 0;">Add your family details and photos</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                                        <div style="width: 32px; height: 32px; background: #38a169; color: white; border-radius: 50%; text-align: center; line-height: 32px; font-weight: 600; margin-right: 15px;">2</div>
+                                        <div>
+                                            <strong style="color: #2d3748; font-size: 16px;">Start Matching</strong>
+                                            <p style="color: #4a5568; font-size: 14px; margin: 0;">Let our AI find your family connections</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div style="display: flex; align-items: center;">
+                                        <div style="width: 32px; height: 32px; background: #d69e2e; color: white; border-radius: 50%; text-align: center; line-height: 32px; font-weight: 600; margin-right: 15px;">3</div>
+                                        <div>
+                                            <strong style="color: #2d3748; font-size: 16px;">Connect & Share</strong>
+                                            <p style="color: #4a5568; font-size: 14px; margin: 0;">Begin conversations and share memories</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- CTA Button -->
+                            <div style="text-align: center; margin-bottom: 30px;">
+                                <a href="{{appUrl}}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 18px 36px; border-radius: 12px; font-weight: 600; font-size: 18px; box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);">
+                                    Complete Your Profile
+                                </a>
+                            </div>
+                            
+                            <!-- Support -->
+                            <div style="background: #f7fafc; border-radius: 12px; padding: 20px; text-align: center;">
+                                <p style="color: #4a5568; font-size: 14px; line-height: 20px; margin-bottom: 15px;">
+                                    <strong>Need help getting started?</strong><br>
+                                    Our support team is here to help you every step of the way.
+                                </p>
+                                <a href="{{helpUrl}}" style="color: #667eea; font-weight: 600; text-decoration: none; font-size: 14px;">
+                                    Visit Help Center →
+                                </a>
+                            </div>
+                            
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background: #f8f9fa; padding: 30px; text-align: center;">
+                            <p style="color: #718096; font-size: 14px; line-height: 20px; margin-bottom: 15px;">
+                                Follow us for tips, updates, and family stories:
+                            </p>
+                            
+                            <!-- Social Icons -->
+                            <div style="margin-bottom: 20px;">
+                                <a href="{{facebookUrl}}" style="display: inline-block; margin: 0 8px; width: 40px; height: 40px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; text-align: center; line-height: 40px;">
+                                    <span style="color: white; font-size: 18px;">f</span>
+                                </a>
+                                <a href="{{twitterUrl}}" style="display: inline-block; margin: 0 8px; width: 40px; height: 40px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; text-align: center; line-height: 40px;">
+                                    <span style="color: white; font-size: 18px;">𝕏</span>
+                                </a>
+                                <a href="{{instagramUrl}}" style="display: inline-block; margin: 0 8px; width: 40px; height: 40px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; text-align: center; line-height: 40px;">
+                                    <span style="color: white; font-size: 18px;">📷</span>
+                                </a>
+                            </div>
+                            
+                            <p style="color: #a0aec0; font-size: 12px; line-height: 18px;">
+                                © 2024 Yo! Family App. All rights reserved.<br>
+                                <a href="{{unsubscribeUrl}}" style="color: #667eea;">Unsubscribe</a> • 
+                                <a href="{{privacyUrl}}" style="color: #667eea;">Privacy</a> • 
+                                <a href="{{termsUrl}}" style="color: #667eea;">Terms</a>
+                            </p>
+                        </td>
+                    </tr>
+                    
+                </table>
+                
+            </td>
+        </tr>
+    </table>
+    
+</body>
+</html>
