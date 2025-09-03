@@ -75,6 +75,16 @@ const statusSchema = new mongoose.Schema({
       type: Number,
       default: 0
     },
+    viewers: [{
+      user_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      viewed_at: {
+        type: Date,
+        default: Date.now
+      }
+    }],
     shares: {
       type: Number,
       default: 0
@@ -188,8 +198,22 @@ statusSchema.methods.addComment = function(userId, comment) {
   return this.save();
 };
 
-statusSchema.methods.incrementViews = function() {
-  this.engagement.views += 1;
+statusSchema.methods.incrementViews = function(viewerId = null) {
+  // Track individual viewer if provided
+  if (viewerId) {
+    const alreadyViewed = this.engagement.viewers.some(viewer => 
+      viewer.user_id && viewer.user_id.toString() === viewerId.toString()
+    );
+    
+    if (!alreadyViewed) {
+      this.engagement.viewers.push({ user_id: viewerId });
+      this.engagement.views = this.engagement.viewers.length;
+    }
+  } else {
+    // Just increment anonymous views
+    this.engagement.views += 1;
+  }
+  
   return this.save();
 };
 

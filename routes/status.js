@@ -114,7 +114,9 @@ router.post('/', authMiddleware, upload.single('image'), async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Status created successfully',
-      status: savedStatus
+      data: {
+        status: savedStatus
+      }
     });
 
   } catch (error) {
@@ -377,21 +379,29 @@ router.post('/:id/view', authMiddleware, async (req, res) => {
       });
     }
 
-    await status.incrementViews();
-    console.log('👁️ Status viewed by user:', req.userId);
+    // Don't record views for own status
+    if (status.user_id.toString() !== req.userId) {
+      await status.incrementViews(req.userId);
+      console.log('👁️ Status viewed by user:', req.userId);
 
-    // Emit real-time update to status owner
-    if (req.app.locals.io && status.user_id.toString() !== req.userId) {
-      req.app.locals.io.to(`user_${status.user_id}`).emit('status_viewed', {
-        statusId: req.params.id,
-        viewerId: req.userId,
-        viewCount: status.engagement.views
-      });
+      // Emit real-time update to status owner
+      if (req.app.locals.io) {
+        req.app.locals.io.to(`user_${status.user_id}`).emit('status_viewed', {
+          statusId: req.params.id,
+          viewerId: req.userId,
+          viewCount: status.engagement.views,
+          totalViewers: status.engagement.viewers.length
+        });
+      }
     }
 
     res.json({
       success: true,
-      message: 'View recorded'
+      message: 'View recorded',
+      data: {
+        viewCount: status.engagement.views,
+        viewerCount: status.engagement.viewers.length
+      }
     });
 
   } catch (error) {
@@ -399,6 +409,45 @@ router.post('/:id/view', authMiddleware, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to record view'
+    });
+  }
+});
+
+// Get status viewers
+router.get('/:id/viewers', authMiddleware, async (req, res) => {
+  try {
+    const status = await Status.findById(req.params.id)
+      .populate('engagement.viewers.user_id', 'first_name last_name profile_photo_url');
+
+    if (!status) {
+      return res.status(404).json({
+        success: false,
+        message: 'Status not found'
+      });
+    }
+
+    // Only status owner can see viewers
+    if (status.user_id.toString() !== req.userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view this information'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        viewers: status.engagement.viewers,
+        totalViews: status.engagement.views,
+        totalViewers: status.engagement.viewers.length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting viewers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get viewers'
     });
   }
 });
