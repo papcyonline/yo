@@ -452,7 +452,7 @@ const saveAnswer = async (req, res) => {
         completionPercentage,
         totalPoints,
         answeredCount: answeredQuestions.length,
-        remainingCount: totalQuestions - questionsWithData
+        remainingCount: profileQuestions.length - answeredQuestions.length
       }
     });
 
@@ -591,7 +591,7 @@ const getChatflowStatus = async (req, res) => {
         answeredCount: answeredQuestions.length,
         skippedCount: skippedQuestions.length,
         questionsWithDataCount: questionsWithData,
-        remainingCount: totalQuestions - questionsWithData,
+        remainingCount: profileQuestions.length - answeredQuestions.length,
         completionPercentage,
         totalPoints,
         currentPhase: getCurrentPhase(totalPoints),
