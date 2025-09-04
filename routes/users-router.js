@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const { User } = require('../models');
+const { calculateProfileCompletion, updateUserProfileCompletion } = require('../services/profileCompletionCalculator');
 
 // Get current user profile
 router.get('/profile', authMiddleware, async (req, res) => {
@@ -643,6 +644,119 @@ router.post('/profile/photo', authMiddleware, profilePhotoUpload.single('photo')
     res.status(500).json({
       success: false,
       message: 'Failed to upload profile photo'
+    });
+  }
+});
+
+// Get AI questionnaire responses and profile completion
+router.get('/ai-questionnaire/responses', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Get AI questionnaire data from user model
+    const responses = user.ai_questionnaire_responses || {};
+    const answeredQuestions = user.ai_questionnaire_completed_questions || [];
+    const completionPercentage = user.profile_completion_percentage || 0;
+    const isQuestionnaireComplete = user.ai_questionnaire_completed || false;
+    const isProfileComplete = user.profile_completed || false;
+
+    // Build detailed response data
+    const responseData = {
+      responses: responses,
+      stats: {
+        totalAnswered: answeredQuestions.length,
+        completionPercentage: completionPercentage,
+        isQuestionnaireComplete: isQuestionnaireComplete,
+        isProfileComplete: isProfileComplete,
+        totalPoints: user.ai_questionnaire_points || 0
+      },
+      profileData: {
+        // Core information
+        firstName: user.first_name,
+        lastName: user.last_name,
+        fullName: user.full_name,
+        fatherName: user.father_name,
+        motherName: user.mother_name,
+        dateOfBirth: user.date_of_birth,
+        gender: user.gender,
+        bio: user.bio,
+        profession: user.profession,
+        location: user.current_location || user.location,
+        
+        // Family information
+        familyInfo: user.family_info,
+        culturalBackground: user.cultural_background,
+        religiousBackground: user.religious_background,
+        
+        // Personal information
+        personalInfo: user.personal_info,
+        interests: user.interests,
+        primaryLanguage: user.primary_language,
+        
+        // Education
+        education: user.education,
+        
+        // Timestamps
+        profileCompletedAt: user.profile_completed_at,
+        lastUpdated: user.updated_at
+      }
+    };
+
+    res.json({
+      success: true,
+      data: responseData
+    });
+
+  } catch (error) {
+    console.error('Error fetching AI questionnaire responses:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch AI questionnaire responses'
+    });
+  }
+});
+
+// Get profile completion summary
+router.get('/profile-completion', authMiddleware, async (req, res) => {
+  try {
+    // Use the centralized profile completion calculator
+    const completionData = await calculateProfileCompletion(req.userId);
+    
+    // Update the user's profile completion in the database if needed
+    if (completionData.needsUpdate) {
+      await updateUserProfileCompletion(req.userId);
+    }
+    
+    const summary = {
+      percentage: completionData.percentage,
+      isComplete: completionData.isComplete,
+      overall: completionData.percentage,
+      sectionScores: completionData.sectionScores,
+      completedFields: completionData.completedFields,
+      missingFields: completionData.missingFields,
+      totalFields: completionData.totalFields,
+      hasAIResponses: completionData.questionnaireAnswers > 0,
+      questionnaireAnswers: completionData.questionnaireAnswers,
+      lastUpdated: new Date()
+    };
+
+    res.json({
+      success: true,
+      data: summary
+    });
+
+  } catch (error) {
+    console.error('Error fetching profile completion:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch profile completion'
     });
   }
 });

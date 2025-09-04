@@ -50,6 +50,19 @@ const userSchema = new mongoose.Schema({
   email_verified: { type: Boolean, default: false },
   phone_verified: { type: Boolean, default: false },
   
+  // Blue check mark verification
+  can_apply_for_verification: { type: Boolean, default: false }, // Becomes true when profile is 100% complete
+  verification_requested: { type: Boolean, default: false },
+  verification_requested_at: Date,
+  is_verified: { type: Boolean, default: false }, // Blue check mark status
+  verified_at: Date,
+  verification_status: { 
+    type: String, 
+    enum: ['not_eligible', 'eligible', 'pending', 'approved', 'rejected'],
+    default: 'not_eligible'
+  },
+  verification_rejection_reason: String,
+  
   // Verification codes
   email_verification_code: String,
   email_verification_expires: Date,
@@ -179,12 +192,24 @@ const userSchema = new mongoose.Schema({
   schools_attended: [String], // Schools for friend matching
   cultural_background: String,
   
-  // LEGACY SUPPORT (keep for backward compatibility)
+  // AI QUESTIONNAIRE TRACKING
   ai_questionnaire_responses: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
   },
   ai_questionnaire_completed: { type: Boolean, default: false },
+  ai_questionnaire_completed_questions: {
+    type: [String],
+    default: []
+  },
+  ai_questionnaire_skipped_questions: {
+    type: [String],
+    default: []
+  },
+  ai_questionnaire_points: {
+    type: Number,
+    default: 0
+  },
   questionnaire_completion_date: Date,
   
   // AI Matching Results
@@ -318,7 +343,7 @@ userSchema.pre('save', async function(next) {
   
   // Calculate profile completion percentage
   this.profile_completion_percentage = this.calculateCompletionPercentage();
-  this.profile_complete = this.profile_completion_percentage >= 80;
+  this.profile_complete = this.profile_completion_percentage >= 85;
   
   next();
 });
