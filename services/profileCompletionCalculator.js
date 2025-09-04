@@ -6,70 +6,26 @@ const { User } = require('../models');
  */
 
 // Define all profile sections and their weights
+// ONBOARDING = 30%, QUESTIONNAIRE = 70%
 const profileSections = {
-  // Core Information (25% of total)
-  core: {
-    weight: 25,
+  // Onboarding Information (30% of total)
+  onboarding: {
+    weight: 30,
     fields: {
-      first_name: { required: true, points: 5 },
-      last_name: { required: true, points: 5 },
-      username: { required: true, points: 3 },
-      email: { required: true, points: 3 },
-      phone: { required: false, points: 2 },
-      date_of_birth: { required: true, points: 4 },
-      gender: { required: false, points: 3 }
+      first_name: { required: true, points: 8 },
+      last_name: { required: true, points: 8 },
+      username: { required: true, points: 8 },
+      date_of_birth: { required: true, points: 8 },
+      gender: { required: true, points: 8 },
+      location: { required: true, points: 8 }
     }
   },
   
-  // Profile Details (15% of total)
-  profile: {
-    weight: 15,
-    fields: {
-      bio: { required: false, points: 5 },
-      profile_photo_url: { required: false, points: 5 },
-      location: { required: false, points: 3 },
-      nickname: { required: false, points: 2 }
-    }
-  },
-  
-  // Family Information (25% of total)
-  family: {
-    weight: 25,
-    fields: {
-      father_name: { required: false, points: 8 },
-      mother_name: { required: false, points: 8 },
-      siblings_names: { required: false, points: 5 },
-      family_origin: { required: false, points: 4 }
-    }
-  },
-  
-  // Education & Professional (15% of total)
-  education: {
-    weight: 15,
-    fields: {
-      profession: { required: false, points: 5 },
-      'education.primary_school': { required: false, points: 3 },
-      'education.high_school': { required: false, points: 4 },
-      'education.university': { required: false, points: 3 }
-    }
-  },
-  
-  // Cultural & Personal (10% of total)
-  cultural: {
-    weight: 10,
-    fields: {
-      primary_language: { required: false, points: 3 },
-      cultural_background: { required: false, points: 3 },
-      religious_background: { required: false, points: 2 },
-      interests: { required: false, points: 2 }
-    }
-  },
-  
-  // AI Questionnaire (10% of total)
+  // AI Questionnaire (70% of total)
   questionnaire: {
-    weight: 10,
+    weight: 70,
     fields: {
-      ai_questionnaire_completed_questions: { required: false, points: 10 }
+      ai_questionnaire_completed_questions: { required: false, points: 100 }
     }
   }
 };
@@ -160,7 +116,6 @@ const calculateProfileCompletion = async (userId) => {
       sectionScores[sectionName] = Math.round(sectionCompletion);
       
       totalWeight += section.weight;
-      weightedScore += (sectionCompletion * section.weight) / 100;
       
       // Track missing and completed fields
       for (const [fieldPath, config] of Object.entries(section.fields)) {
@@ -173,13 +128,20 @@ const calculateProfileCompletion = async (userId) => {
       }
     }
     
-    // Special handling for AI questionnaire
+    // Special handling for AI questionnaire - give full 70% when questionnaire is completed
     const questionnaireCount = user.ai_questionnaire_completed_questions?.length || 0;
-    if (questionnaireCount > 0) {
-      // Boost questionnaire score based on number of answers
-      const questionnaireBonus = Math.min(questionnaireCount * 2, 20); // Up to 20% bonus
-      weightedScore += questionnaireBonus;
-      sectionScores.questionnaire = Math.min(100, sectionScores.questionnaire + questionnaireBonus);
+    if (questionnaireCount >= 15) {
+      // Consider questionnaire complete if user answered 15+ questions
+      sectionScores.questionnaire = 100;
+    } else if (questionnaireCount > 0) {
+      // Progressive scoring: each answer gives ~6.67% of the questionnaire section
+      sectionScores.questionnaire = Math.min(100, (questionnaireCount / 15) * 100);
+    }
+    
+    // Calculate weighted score using the updated section scores
+    weightedScore = 0;
+    for (const [sectionName, section] of Object.entries(profileSections)) {
+      weightedScore += (sectionScores[sectionName] * section.weight) / 100;
     }
     
     const overallPercentage = Math.round(Math.min(100, (weightedScore / totalWeight) * 100));
