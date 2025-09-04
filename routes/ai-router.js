@@ -63,7 +63,14 @@ router.get('/profile-completion-analysis', authMiddleware, async (req, res) => {
         isComplete: isComplete,
         suggestions: suggestions.slice(0, 3), // Limit to 3 suggestions
         missingFields: missingFields,
-        criticalMissing: missingFields
+        criticalMissing: missingFields,
+        // Blue check verification info
+        verification: {
+          can_apply_for_verification: user.can_apply_for_verification || false,
+          verification_status: user.verification_status || 'not_eligible',
+          is_verified: user.is_verified || false,
+          eligible_for_verification: completionScore >= 100
+        }
       }
     });
   } catch (error) {
@@ -96,5 +103,28 @@ router.get('/insights', authMiddleware, (req, res) => {
     }
   });
 });
+
+// AI Chatflow endpoints
+const {
+  getNextQuestion,
+  saveAnswer,
+  getUnansweredQuestions,
+  getChatflowStatus,
+  resetChatflow,
+  getQuestionnaireResponses,
+  syncResponsesToProfile
+} = require('../services/ai/chatflowService');
+
+// CHATFLOW ROUTES - Frontend expects /api/ai/chatflow/* paths
+router.use('/chatflow', require('./ai/chatflow'));
+
+// LEGACY ROUTES - Keep for backwards compatibility
+router.get('/chat/next-question', authMiddleware, getNextQuestion);
+router.post('/chat/save-answer', authMiddleware, saveAnswer);
+router.get('/chat/unanswered', authMiddleware, getUnansweredQuestions);
+router.get('/chat/status', authMiddleware, getChatflowStatus);
+router.post('/chat/reset', authMiddleware, resetChatflow);
+router.get('/questionnaire/responses', authMiddleware, getQuestionnaireResponses);
+router.post('/questionnaire/sync-to-profile', authMiddleware, syncResponsesToProfile);
 
 module.exports = router;
