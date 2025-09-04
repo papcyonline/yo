@@ -109,7 +109,7 @@ const parseAIResponse = (aiResponse, userData) => {
       return {
         aiGenerated: true,
         completionScore: parsed.completionPercentage || 0,
-        isComplete: (parsed.completionPercentage || 0) >= 80,
+        isComplete: (parsed.completionPercentage || 0) >= 85,
         criticalMissing: parsed.criticalMissing || [],
         recommendations: parsed.recommendations || [],
         estimatedTime: parsed.estimatedTime || '5-10 minutes',
@@ -191,12 +191,12 @@ const performBasicAnalysis = (user, progressive) => {
   return {
     aiGenerated: false,
     completionScore: Math.min(score, 100),
-    isComplete: score >= 80,
+    isComplete: score >= 85,
     criticalMissing: missing.slice(0, 3),
     recommendations,
     estimatedTime: `${Math.ceil(missing.length * 1.5)}-${missing.length * 3} minutes`,
     familyTreePotential: score >= 60 ? 'high' : score >= 30 ? 'medium' : 'low',
-    matchingInsights: `Profile has ${score}% completion. ${score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Fair' : 'Limited'} potential for family matching.`
+    matchingInsights: `Profile has ${score}% completion. ${score >= 85 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Fair' : 'Limited'} potential for family matching.`
   };
 };
 

@@ -170,6 +170,7 @@ app.use('/api/communities', require('./routes/communities-router')); // Communit
 
 // TODO: Re-enable other routes after fixing them
 app.use('/api/safety', require('./routes/safety'));
+app.use('/api/verification', require('./routes/verification')); // Blue check verification
 
 // Additional routes (uncommented and fixed)
 console.log('📡 Loading additional routes...');

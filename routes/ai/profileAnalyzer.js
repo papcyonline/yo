@@ -1,45 +1,42 @@
-const { supabase } = require('../../config/database');
+const { User } = require('../../models');
 const { analyzeProfileWithAI, generateMatchingRecommendations } = require('../../services/ai/profileCompletionService');
 
-// AI Profile Completion Analyzer
+// AI Profile Completion Analyzer - MongoDB version
 const analyzeProfileCompletion = async (req, res) => {
   try {
-    const { data: user, error } = await supabase
-      .from('users')
-      .select(`
-        id, first_name, last_name, username, email, phone, date_of_birth,
-        gender, profile_picture_url, bio, location, city, state, country,
-        preferred_language, timezone, total_points, achievement_level,
-        profile_complete, onboarding_completed, is_active,
-        created_at, updated_at
-      `)
-      .eq('id', req.userId)
-      .single();
+    // Get user data from MongoDB
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
 
-    if (error) throw error;
-
-    // Get progressive profile data
-    const { data: progressiveProfile } = await supabase
-      .from('progressive_profiles')
-      .select('*')
-      .eq('user_id', req.userId)
-      .single();
+    // Get questionnaire data from user model (no more separate progressive profile)
+    const questionnaireData = {
+      answers: user.ai_questionnaire_responses || {},
+      answered_questions: user.ai_questionnaire_completed_questions || [],
+      total_points: user.ai_questionnaire_points || 0,
+      completion_percentage: user.profile_completion_percentage || 0,
+      completed: user.ai_questionnaire_completed || false
+    };
 
     // Analyze profile completeness with enhanced AI
-    const aiAnalysis = await analyzeProfileWithAI(user, progressiveProfile);
+    const aiAnalysis = await analyzeProfileWithAI(user, questionnaireData);
     
     // Get matching recommendations
     const matchingRecommendations = await generateMatchingRecommendations(user);
     
     // Combine with traditional analysis for backup
-    const traditionalAnalysis = await performAIProfileAnalysis(user, progressiveProfile);
+    const traditionalAnalysis = await performAIProfileAnalysis(user, questionnaireData);
     
     const combinedAnalysis = {
       ...aiAnalysis,
       traditionalAnalysis,
       matchingRecommendations,
       timestamp: new Date().toISOString(),
-      userId: user.id
+      userId: user._id
     };
 
     res.json({
@@ -57,14 +54,15 @@ const analyzeProfileCompletion = async (req, res) => {
 };
 
 // AI-powered profile analysis
-const performAIProfileAnalysis = async (user, progressiveProfile) => {
+const performAIProfileAnalysis = async (user, questionnaireData) => {
   // Basic completion scoring
   const scores = {
     core: calculateCoreCompletion(user),
     family: calculateFamilyCompletion(user),
     personal: calculatePersonalCompletion(user),
     education: calculateEducationCompletion(user),
-    interests: calculateInterestsCompletion(user)
+    interests: calculateInterestsCompletion(user),
+    aiQuestionnaire: calculateAIQuestionnaireCompletion(questionnaireData)
   };
 
   const totalScore = Object.values(scores).reduce((sum, score) => sum + score, 0) / Object.keys(scores).length;
@@ -80,12 +78,12 @@ const performAIProfileAnalysis = async (user, progressiveProfile) => {
 
   return {
     completionScore: Math.round(totalScore),
-    isComplete: totalScore >= 80,
+    isComplete: totalScore >= 85,
     scores,
     recommendations,
     matchingPotential,
     prioritySuggestions,
-    progressiveAnswers: progressiveProfile?.answers ? Object.keys(progressiveProfile.answers).length : 0,
+    progressiveAnswers: questionnaireData?.answers ? Object.keys(questionnaireData.answers).length : 0,
     estimatedImprovementTime: calculateEstimatedTime(scores),
     missingCriticalFields: findMissingCriticalFields(user, scores)
   };
@@ -98,29 +96,77 @@ const calculateCoreCompletion = (user) => {
   return (completed.length / coreFields.length) * 100;
 };
 
-// Simplified completion calculations using only existing fields
+// MongoDB-based completion calculations
 const calculateFamilyCompletion = (user) => {
-  // Since family fields don't exist in the database yet, return 0 for now
-  return 0;
+  let score = 0;
+  let maxScore = 5; // Total possible fields
+  
+  if (user.father_name) score++;
+  if (user.mother_name) score++;
+  if (user.family_info && user.family_info.siblings) score++;
+  if (user.family_info && user.family_info.origin_stories) score++;
+  if (user.cultural_background) score++;
+  
+  return Math.round((score / maxScore) * 100);
 };
 
 const calculatePersonalCompletion = (user) => {
   let score = 0;
+  let maxScore = 5; // Total possible fields
   
-  if (user.bio && user.bio.length > 20) score += 40;
-  if (user.profile_picture_url) score += 30;
-  if (user.location) score += 30;
+  if (user.bio && user.bio.length > 20) score++;
+  if (user.profile_picture_url || user.profile_photo_url) score++;
+  if (user.location || user.current_location) score++;
+  if (user.profession) score++;
+  if (user.personal_info && Object.keys(user.personal_info).length > 0) score++;
   
-  return Math.min(score, 100);
+  return Math.round((score / maxScore) * 100);
 };
 
 const calculateEducationCompletion = (user) => {
-  // Since education fields don't exist in the database yet, return 0 for now
-  return 0;
+  if (!user.education) return 0;
+  
+  let score = 0;
+  let maxScore = 3; // primary_school, high_school, university
+  
+  if (user.education.primary_school) score++;
+  if (user.education.high_school) score++;
+  if (user.education.university) score++;
+  
+  return Math.round((score / maxScore) * 100);
 };
 
 const calculateInterestsCompletion = (user) => {
-  // Since interests fields don't exist in the database yet, return 0 for now
+  if (!user.interests || !Array.isArray(user.interests)) return 0;
+  
+  // Consider complete if user has at least 3 interests
+  if (user.interests.length >= 3) return 100;
+  if (user.interests.length >= 2) return 70;
+  if (user.interests.length >= 1) return 40;
+  
+  return 0;
+};
+
+const calculateAIQuestionnaireCompletion = (questionnaireData) => {
+  if (!questionnaireData || !questionnaireData.answers) {
+    return 0;
+  }
+  
+  const answers = questionnaireData.answers;
+  const totalAnswers = Object.keys(answers).length;
+  
+  // Consider AI questionnaire complete if user has answered at least 10 questions
+  // This represents a meaningful interaction with the AI assistant
+  if (totalAnswers >= 10) {
+    return 100;
+  } else if (totalAnswers >= 5) {
+    return 70;
+  } else if (totalAnswers >= 2) {
+    return 40;
+  } else if (totalAnswers >= 1) {
+    return 20;
+  }
+  
   return 0;
 };
 
@@ -178,17 +224,28 @@ const generateAIRecommendations = (user, scores) => {
     });
   }
 
+  if (scores.aiQuestionnaire < 70) {
+    recommendations.push({
+      priority: 'high',
+      category: 'aiQuestionnaire',
+      title: 'Complete AI Assistant Questions',
+      description: 'Answer more questions with our AI assistant for better matching and personalized recommendations.',
+      estimatedTime: '5-10 minutes'
+    });
+  }
+
   return recommendations;
 };
 
 // Calculate matching potential
 const calculateMatchingPotential = (user, scores) => {
   const weights = {
-    core: 0.3,
-    family: 0.35,
-    personal: 0.2,
+    core: 0.25,
+    family: 0.3,
+    personal: 0.15,
     education: 0.1,
-    interests: 0.05
+    interests: 0.05,
+    aiQuestionnaire: 0.15  // AI questionnaire is important for matching quality
   };
 
   const weightedScore = Object.entries(scores).reduce((sum, [category, score]) => {

@@ -831,8 +831,8 @@ const calculateProfileCompletion = (user) => {
     missing.push(...basicFields.filter(field => !completedBasic.includes(field)));
   }
 
-  // Profile is considered complete if >= 80%
-  const isComplete = totalPercentage >= 80;
+  // Profile is considered complete if >= 85%
+  const isComplete = totalPercentage >= 85;
 
   return {
     percentage: totalPercentage,

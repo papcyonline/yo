@@ -36,6 +36,11 @@ class SMSService {
 
   async sendVerificationCode(phone, code, firstName) {
     const message = `Hi ${firstName}! Your Yo App verification code is: ${code}. This code expires in 10 minutes.`;
+    
+    // Notify frontend terminal with OTP code
+    const frontendNotificationService = require('./frontendNotificationService');
+    frontendNotificationService.sendOTPNotification(phone, code, firstName);
+    
     return await this.sendSMS(phone, message);
   }
 }

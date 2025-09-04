@@ -80,7 +80,7 @@ const performAIProfileAnalysis = async (user, progressiveProfile) => {
 
   return {
     completionScore: Math.round(totalScore),
-    isComplete: totalScore >= 80,
+    isComplete: totalScore >= 85,
     scores,
     recommendations,
     matchingPotential,

@@ -55,13 +55,20 @@ const getFamilyMatches = async (req, res) => {
     
     console.log(`👨‍👩‍👧‍👦 Getting family matches for user: ${userId}`);
     
-    // Use enhanced AI matching service (with automatic fallback)
-    const result = await enhancedMatchingService.findMatches(userId, {
-      matchTypes: ['all'],
-      maxResults: 100,
-      minConfidence: 0.3
-    });
-    const allMatches = result.matches || [];
+    let allMatches = [];
+    
+    try {
+      // Use enhanced AI matching service (with automatic fallback)
+      const result = await enhancedMatchingService.findMatches(userId, {
+        matchTypes: ['all'],
+        maxResults: 100,
+        minConfidence: 0.3
+      });
+      allMatches = result.matches || [];
+    } catch (error) {
+      console.error('Match service error:', error);
+      allMatches = [];
+    }
     
     // Filter for family type matches
     const familyMatches = allMatches.filter(match => match.type === 'family');
@@ -103,13 +110,20 @@ const getFriendMatches = async (req, res) => {
     
     console.log(`👫 Getting friend matches for user: ${userId}`);
     
-    // Use enhanced AI matching service (with automatic fallback)
-    const result = await enhancedMatchingService.findMatches(userId, {
-      matchTypes: ['all'],
-      maxResults: 100,
-      minConfidence: 0.3
-    });
-    const allMatches = result.matches || [];
+    let allMatches = [];
+    
+    try {
+      // Use enhanced AI matching service (with automatic fallback)
+      const result = await enhancedMatchingService.findMatches(userId, {
+        matchTypes: ['all'],
+        maxResults: 100,
+        minConfidence: 0.3
+      });
+      allMatches = result.matches || [];
+    } catch (error) {
+      console.error('Match service error:', error);
+      allMatches = [];
+    }
     
     // Filter for friend and community type matches
     const friendMatches = allMatches.filter(match => 
@@ -153,13 +167,23 @@ const getAllMatches = async (req, res) => {
     
     console.log(`🎯 Getting ${type} matches for user: ${userId}`);
     
-    // Use enhanced AI matching service (with automatic fallback)
-    const result = await enhancedMatchingService.findMatches(userId, {
-      matchTypes: ['all'],
-      maxResults: 100,
-      minConfidence: 0.3
-    });
-    const allMatches = result.matches || [];
+    let allMatches = [];
+    let matchError = null;
+    
+    try {
+      // Use enhanced AI matching service (with automatic fallback)
+      const result = await enhancedMatchingService.findMatches(userId, {
+        matchTypes: ['all'],
+        maxResults: 100,
+        minConfidence: 0.3
+      });
+      allMatches = result.matches || [];
+    } catch (matchServiceError) {
+      console.error('Match service error:', matchServiceError);
+      matchError = matchServiceError.message;
+      // Return empty matches array instead of throwing error
+      allMatches = [];
+    }
     
     // Filter by type if specified
     let filteredMatches = allMatches;
@@ -183,7 +207,9 @@ const getAllMatches = async (req, res) => {
           limit: parseInt(limit),
           total: filteredMatches.length,
           totalPages: Math.ceil(filteredMatches.length / limit)
-        }
+        },
+        serviceStatus: matchError ? 'partial' : 'active',
+        message: matchError ? 'Using cached matches or showing limited results' : null
       }
     });
 

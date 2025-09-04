@@ -42,6 +42,30 @@ class ContentModerationService {
     }
     
     /**
+     * Moderate post content - main method for posts/status updates
+     */
+    async moderatePost({ content, userId }) {
+        console.log(`🔍 Moderating post content for user ${userId}`);
+        
+        // Analyze the content
+        const analysis = await this.analyzeContent(content, { userId });
+        
+        // Determine if content is approved
+        const overallApproved = analysis.overallScore >= 0.5 && 
+                               analysis.violations.length === 0;
+        
+        return {
+            overallApproved,
+            content: {
+                modifiedContent: analysis.modifiedContent || content,
+                flags: analysis.violations,
+                score: analysis.overallScore
+            },
+            analysis
+        };
+    }
+    
+    /**
      * Analyze content for violations
      */
     async analyzeContent(content, context = {}) {
@@ -114,7 +138,16 @@ class ContentModerationService {
             // Determine overall severity and actions
             this.determineSeverityAndActions(analysis);
             
-            console.log(`🔍 Content analysis: ${analysis.violations.length} violations, severity: ${analysis.severity}`);
+            // Calculate overall score (1.0 = clean, 0.0 = violates)
+            analysis.overallScore = analysis.violations.length === 0 ? 1.0 : 
+                                   analysis.severity === 'low' ? 0.8 :
+                                   analysis.severity === 'medium' ? 0.6 :
+                                   analysis.severity === 'high' ? 0.3 : 0.0;
+            
+            // For now, we don't modify content, just return original
+            analysis.modifiedContent = content;
+            
+            console.log(`🔍 Content analysis: ${analysis.violations.length} violations, severity: ${analysis.severity}, score: ${analysis.overallScore}`);
             
             return analysis;
             

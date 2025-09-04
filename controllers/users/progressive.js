@@ -704,7 +704,7 @@ const calculateProgressiveCompletion = (answeredQuestions, answers) => {
     percentage,
     answeredCount,
     totalQuestions,
-    isComplete: percentage >= 80 // Consider 80% as complete
+    isComplete: percentage >= 85 // Consider 85% as complete
   };
 };
 
