@@ -7,6 +7,8 @@ const FriendRequest = require('./FriendRequest');
 const { Chat, Message } = require('./Chat');
 const BlockedUser = require('./BlockedUser');
 const Report = require('./Report');
+const FamilyTree = require('./FamilyTree');
+const FamilyMember = require('./FamilyMember');
 
 module.exports = {
   User,
@@ -17,5 +19,7 @@ module.exports = {
   Chat,
   Message,
   BlockedUser,
-  Report
+  Report,
+  FamilyTree,
+  FamilyMember
 };

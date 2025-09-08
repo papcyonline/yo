@@ -167,6 +167,7 @@ app.use('/api/unified-onboarding', require('./routes/unified-onboarding')); // U
 app.use('/api/matching', require('./routes/matching-router')); // Matching endpoints
 app.use('/api/ai', require('./routes/ai-router')); // AI endpoints
 app.use('/api/communities', require('./routes/communities-router')); // Communities
+app.use('/api/genealogy', require('./routes/genealogy')); // Family Tree/Genealogy
 
 // TODO: Re-enable other routes after fixing them
 app.use('/api/safety', require('./routes/safety'));

@@ -205,6 +205,21 @@ router.post('/register', async (req, res) => {
       onboarding_data 
     } = req.body;
 
+    // Validate required fields
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is required'
+      });
+    }
+
+    if (!email && !phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Either email or phone is required'
+      });
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({
       $or: [
@@ -295,7 +310,7 @@ router.post('/register', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error during registration',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

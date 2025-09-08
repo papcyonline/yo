@@ -190,7 +190,13 @@
       "Read(/C:\\Users\\papcy\\Desktop\\Yo!\\Yo Backend\\routes/**)",
       "Read(/C:\\Users\\papcy\\Desktop\\Yo!\\Yo Frontend\\src\\screens\\CompleteProfile/**)",
       "Read(/C:\\Users\\papcy\\Desktop\\Yo!\\Yo Frontend\\src\\services\\api/**)",
-      "Read(/C:\\Users\\papcy\\Desktop\\Yo!\\Yo Backend\\services/**)"
+      "Read(/C:\\Users\\papcy\\Desktop\\Yo!\\Yo Backend\\services/**)",
+      "Read(/C:\\Users\\papcy\\Desktop\\Yo!\\Yo Frontend\\src\\components\\status/**)",
+      "Read(/C:\\Users\\papcy\\Desktop\\Yo!\\Yo Frontend\\src\\components\\status/**)",
+      "Bash(npm:*)",
+      "Bash(PORT=8085 npx expo start --port 8085)",
+      "Bash(PORT=8088 npx expo start --port 8088 --clear)",
+      "Read(//c/Users/papcy/Downloads/**)"
     ],
     "deny": [],
     "ask": [],

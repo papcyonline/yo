@@ -17,9 +17,23 @@ const statusSchema = new mongoose.Schema({
     },
     type: {
       type: String,
-      enum: ['text', 'image', 'text_with_image'],
+      enum: ['text', 'image', 'audio', 'text_with_image', 'text_with_audio', 'image_audio', 'text_with_image_audio'],
       required: true,
       default: 'text'
+    },
+    // Text styling options
+    style: {
+      background_color: {
+        type: String,
+        default: '#0091ad',
+        maxlength: 7 // hex color
+      },
+      font_size: {
+        type: Number,
+        default: 18,
+        min: 12,
+        max: 40
+      }
     }
   },
   
@@ -39,7 +53,17 @@ const statusSchema = new mongoose.Schema({
     },
     image_width: Number,
     image_height: Number,
-    file_size: Number // in bytes
+    file_size: Number, // in bytes
+    // Audio fields
+    audio_url: {
+      type: String,
+      maxlength: 500
+    },
+    audio_public_id: {
+      type: String, // For Cloudinary deletion
+      maxlength: 200
+    },
+    audio_duration: Number // in seconds
   },
   
   // Engagement metrics
