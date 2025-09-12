@@ -9,6 +9,9 @@ const BlockedUser = require('./BlockedUser');
 const Report = require('./Report');
 const FamilyTree = require('./FamilyTree');
 const FamilyMember = require('./FamilyMember');
+const Community = require('./Community');
+const CommunityMembership = require('./CommunityMembership');
+const PrivacySettings = require('./PrivacySettings');
 
 module.exports = {
   User,
@@ -21,5 +24,8 @@ module.exports = {
   BlockedUser,
   Report,
   FamilyTree,
-  FamilyMember
+  FamilyMember,
+  Community,
+  CommunityMembership,
+  PrivacySettings
 };

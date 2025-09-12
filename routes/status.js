@@ -8,17 +8,25 @@ const { contentModerationService } = require('../services/contentModerationServi
 
 const router = express.Router();
 
-// Configure Cloudinary storage for multer - Images
-const imageStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'status_images',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'],
-    transformation: [
-      { width: 800, height: 800, crop: 'limit', quality: 'auto:good' },
-      { width: 300, height: 300, crop: 'fill', quality: 'auto:low', suffix: '_thumb' }
-    ]
+// Configure temporary storage for status images (24hr expiry)
+const path = require('path');
+const fs = require('fs').promises;
+
+// Create temp directory for status images
+const tempStatusDir = path.join(__dirname, '..', 'temp', 'status_images');
+fs.mkdir(tempStatusDir, { recursive: true }).catch(console.error);
+
+const tempStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, tempStatusDir);
   },
+  filename: (req, file, cb) => {
+    // Generate unique filename with timestamp for auto-cleanup
+    const timestamp = Date.now();
+    const uniqueSuffix = Math.round(Math.random() * 1E9);
+    const extension = path.extname(file.originalname).toLowerCase();
+    cb(null, `status_${timestamp}_${uniqueSuffix}${extension}`);
+  }
 });
 
 // Configure Cloudinary storage for multer - Audio
@@ -42,7 +50,21 @@ const uploadFields = multer({
   { name: 'audio', maxCount: 1 }
 ]);
 
-const upload = multer({ storage: imageStorage });
+const upload = multer({ 
+  storage: tempStorage,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB for high quality images
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp|heic|heif/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    if (extname) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'));
+    }
+  }
+});
 
 // Test endpoint to debug FormData
 router.post('/debug', authMiddleware, upload.single('image'), async (req, res) => {
@@ -59,9 +81,9 @@ router.post('/debug', authMiddleware, upload.single('image'), async (req, res) =
 });
 
 // Create a new status
-router.post('/', authMiddleware, uploadFields, async (req, res) => {
+router.post('/', authMiddleware, upload.single('image'), async (req, res) => {
   try {
-    const { text, visibility, location_name, latitude, longitude, textBackgroundColor, textFontSize } = req.body;
+    const { text, visibility, location_name, latitude, longitude, textBackgroundColor, textFontSize, textColor, textFontFamily, textAlignment } = req.body;
 
     console.log('📝 Creating status for user:', req.userId);
     console.log('📝 Status data:', { text: text?.substring(0, 50), visibility, location_name });
@@ -77,24 +99,30 @@ router.post('/', authMiddleware, uploadFields, async (req, res) => {
       textLength: text?.length, 
       trimmedLength: text?.trim()?.length 
     });
+    
+    console.log('🎨 [DEBUG] Style data received:', {
+      backgroundColor: textBackgroundColor,
+      textColor: textColor,
+      fontSize: textFontSize,
+      fontFamily: textFontFamily,
+      alignment: textAlignment
+    });
 
-    // Check for uploaded files
-    const imageFile = req.files?.image?.[0];
-    const audioFile = req.files?.audio?.[0];
+    // Check for uploaded file
+    const imageFile = req.file;
     
     console.log('📝 [DEBUG] Files received:', {
       image: imageFile ? 'YES' : 'NO',
-      audio: audioFile ? 'YES' : 'NO',
       imageFile: imageFile ? imageFile.originalname : null,
-      audioFile: audioFile ? audioFile.originalname : null
+      imageUrl: imageFile ? imageFile.path : null
     });
     
     // Validate required content  
-    if (!text?.trim() && !imageFile && !audioFile) {
-      console.log('📝 [ERROR] Validation failed - no text, image, or audio');
+    if (!text?.trim() && !imageFile) {
+      console.log('📝 [ERROR] Validation failed - no text or image');
       return res.status(400).json({
         success: false,
-        message: 'Please provide text, image, or audio'
+        message: 'Please provide text or image'
       });
     }
 
@@ -127,12 +155,8 @@ router.post('/', authMiddleware, uploadFields, async (req, res) => {
 
     // Determine content type
     let contentType = 'text';
-    if (imageFile && audioFile) {
-      contentType = moderatedText ? 'text_with_image_audio' : 'image_audio';
-    } else if (imageFile) {
+    if (imageFile) {
       contentType = moderatedText ? 'text_with_image' : 'image';
-    } else if (audioFile) {
-      contentType = moderatedText ? 'text_with_audio' : 'audio';
     }
 
     // Prepare status data
@@ -142,79 +166,32 @@ router.post('/', authMiddleware, uploadFields, async (req, res) => {
         text: moderatedText,
         type: contentType,
         style: {
-          background_color: textBackgroundColor || '#0091ad',
-          font_size: textFontSize ? parseInt(textFontSize) : 18
+          background_color: textBackgroundColor || '#04a7c7',
+          font_size: textFontSize ? parseInt(textFontSize) : 18,
+          text_color: textColor || '#FFFFFF',
+          font_family: textFontFamily || 'System',
+          text_alignment: textAlignment || 'center'
         }
       },
       visibility: visibility || 'friends',
-      is_active: true
+      is_active: true,
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000) // Explicitly set 24 hour expiry
     };
 
-    // Upload files to Cloudinary and add media data
-    if (imageFile || audioFile) {
-      statusData.media = {};
-
-      // Handle image upload
-      if (imageFile) {
-        try {
-          const imageUploadResult = await new Promise((resolve, reject) => {
-            cloudinary.uploader.upload_stream(
-              {
-                folder: 'status_images',
-                transformation: [
-                  { width: 800, height: 800, crop: 'limit', quality: 'auto:good' },
-                ],
-              },
-              (error, result) => {
-                if (error) reject(error);
-                else resolve(result);
-              }
-            ).end(imageFile.buffer);
-          });
-
-          statusData.media.image_url = imageUploadResult.secure_url;
-          statusData.media.image_public_id = imageUploadResult.public_id;
-          statusData.media.thumbnail_url = imageUploadResult.secure_url.replace('/upload/', '/upload/c_fill,h_300,w_300,q_auto:low/');
-          
-          console.log('🖼️ [SUCCESS] Image uploaded to Cloudinary:', imageUploadResult.secure_url);
-        } catch (error) {
-          console.error('🖼️ [ERROR] Image upload failed:', error);
-          return res.status(500).json({
-            success: false,
-            message: 'Failed to upload image'
-          });
-        }
-      }
-
-      // Handle audio upload
-      if (audioFile) {
-        try {
-          const audioUploadResult = await new Promise((resolve, reject) => {
-            cloudinary.uploader.upload_stream(
-              {
-                folder: 'status_audio',
-                resource_type: 'video', // Cloudinary uses 'video' for audio
-              },
-              (error, result) => {
-                if (error) reject(error);
-                else resolve(result);
-              }
-            ).end(audioFile.buffer);
-          });
-
-          statusData.media.audio_url = audioUploadResult.secure_url;
-          statusData.media.audio_public_id = audioUploadResult.public_id;
-          statusData.media.audio_duration = audioUploadResult.duration;
-          
-          console.log('🎤 [SUCCESS] Audio uploaded to Cloudinary:', audioUploadResult.secure_url);
-        } catch (error) {
-          console.error('🎤 [ERROR] Audio upload failed:', error);
-          return res.status(500).json({
-            success: false,
-            message: 'Failed to upload audio'
-          });
-        }
-      }
+    // Add media if image uploaded  
+    if (imageFile) {
+      // Create URL for serving the temporary file
+      const imageUrl = `${req.protocol}://${req.get('host')}/temp/status_images/${imageFile.filename}`;
+      
+      statusData.media = {
+        image_url: imageUrl,
+        image_public_id: imageFile.filename,
+        thumbnail_url: imageUrl, // Same original image - no processing needed
+        file_path: imageFile.path, // Store local path for cleanup
+        created_at: new Date() // For cleanup scheduling
+      };
+      
+      console.log('🖼️ [SUCCESS] Image stored temporarily:', imageUrl);
     }
 
     // Add location if provided
@@ -267,22 +244,60 @@ router.get('/feed', authMiddleware, async (req, res) => {
 
     console.log('📱 Getting status feed for user:', req.userId);
 
-    const statuses = await Status.find({
+    const query = {
       is_active: true,
       expires_at: { $gt: new Date() }
-    })
+    };
+    
+    console.log('📱 [DEBUG] Query:', query, 'Current time:', new Date());
+
+    const statuses = await Status.find(query)
     .populate('user_id', 'first_name last_name profile_photo_url')
     .sort({ created_at: -1 })
     .limit(limit)
     .skip(offset);
     
-    console.log('📱 [DEBUG] Retrieved statuses with media:', statuses.map(s => ({
+    console.log('📱 [DEBUG] Retrieved statuses:', statuses.map(s => ({
       id: s._id,
       contentType: s.content.type,
       hasMedia: !!s.media,
       imageUrl: s.media?.image_url,
-      userName: s.user_id.first_name
+      userName: s.user_id.first_name,
+      createdAt: s.created_at,
+      expiresAt: s.expires_at,
+      isActive: s.is_active,
+      text: s.content.text?.substring(0, 30),
+      fullContent: s.content,
+      fullMedia: s.media
     })));
+
+    // Let's check if there are any text-only statuses being filtered out
+    const allStatuses = await Status.find({})
+      .populate('user_id', 'first_name last_name profile_photo_url')
+      .sort({ created_at: -1 })
+      .limit(20);
+    
+    console.log('🔍 [DEBUG] ALL statuses in database (recent 20):', allStatuses.map(s => ({
+      id: s._id,
+      contentType: s.content.type,
+      text: s.content.text?.substring(0, 30),
+      hasMedia: !!s.media,
+      isActive: s.is_active,
+      expires: s.expires_at,
+      expired: new Date() > s.expires_at
+    })));
+
+    // Also check if there are ANY statuses in the database
+    const totalStatuses = await Status.countDocuments({});
+    const activeStatuses = await Status.countDocuments({ is_active: true });
+    const unexpiredStatuses = await Status.countDocuments({ expires_at: { $gt: new Date() } });
+    
+    console.log('📱 [DEBUG] Status counts:', {
+      total: totalStatuses,
+      active: activeStatuses,
+      unexpired: unexpiredStatuses,
+      matchingQuery: statuses.length
+    });
 
     res.json({
       success: true,
@@ -628,5 +643,116 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     });
   }
 });
+
+// Cleanup function for expired status images (like WhatsApp - 24hrs)
+async function cleanupExpiredStatusImages() {
+  try {
+    const Status = require('../models/Status');
+    const now = new Date();
+    
+    console.log('🧹 [CLEANUP] Starting cleanup of expired status images...');
+    
+    // Find statuses with images that have expired based on expires_at field
+    const expiredStatuses = await Status.find({
+      'media.file_path': { $exists: true },
+      expires_at: { $lt: now }
+    });
+    
+    let deletedCount = 0;
+    let errorCount = 0;
+    
+    for (const status of expiredStatuses) {
+      if (status.media && status.media.file_path) {
+        try {
+          // Check if file exists before trying to delete
+          const fs = require('fs').promises;
+          await fs.access(status.media.file_path);
+          
+          // Delete the physical file
+          await fs.unlink(status.media.file_path);
+          console.log('🗑️ [CLEANUP] Deleted expired status image:', status.media.file_path);
+          deletedCount++;
+          
+          // Remove file references from database but keep status record
+          status.media.file_path = undefined;
+          status.media.image_url = undefined;
+          status.media.thumbnail_url = undefined;
+          await status.save();
+          
+        } catch (fileError) {
+          if (fileError.code === 'ENOENT') {
+            console.log('ℹ️ [CLEANUP] File already deleted:', status.media.file_path);
+            // Still update the database to remove the reference
+            status.media.file_path = undefined;
+            status.media.image_url = undefined;
+            status.media.thumbnail_url = undefined;
+            await status.save();
+          } else {
+            console.log('⚠️ [CLEANUP] Error deleting file:', status.media.file_path, fileError.message);
+            errorCount++;
+          }
+        }
+      }
+    }
+    
+    // Also clean up orphaned files in temp directory
+    await cleanupOrphanedTempFiles();
+    
+    console.log(`🧹 [CLEANUP] Processed ${expiredStatuses.length} expired statuses, deleted ${deletedCount} files, ${errorCount} errors`);
+  } catch (error) {
+    console.error('❌ [CLEANUP] Error during cleanup process:', error);
+  }
+}
+
+// Function to clean up orphaned files in temp directory
+async function cleanupOrphanedTempFiles() {
+  try {
+    const tempDir = path.join(__dirname, '..', 'temp', 'status_images');
+    const fs = require('fs').promises;
+    
+    // Check if temp directory exists
+    try {
+      await fs.access(tempDir);
+    } catch {
+      return; // Directory doesn't exist, nothing to clean
+    }
+    
+    const files = await fs.readdir(tempDir);
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    let orphanedCount = 0;
+    
+    for (const filename of files) {
+      const filePath = path.join(tempDir, filename);
+      
+      try {
+        const stats = await fs.stat(filePath);
+        
+        // If file is older than 24 hours, check if it's still referenced in database
+        if (stats.mtime < twentyFourHoursAgo) {
+          const Status = require('../models/Status');
+          const referencedStatus = await Status.findOne({ 'media.file_path': filePath });
+          
+          if (!referencedStatus) {
+            // File is orphaned, delete it
+            await fs.unlink(filePath);
+            console.log('🗑️ [CLEANUP] Deleted orphaned file:', filename);
+            orphanedCount++;
+          }
+        }
+      } catch (fileError) {
+        console.log('⚠️ [CLEANUP] Error processing file:', filename, fileError.message);
+      }
+    }
+    
+    if (orphanedCount > 0) {
+      console.log(`🧹 [CLEANUP] Deleted ${orphanedCount} orphaned files`);
+    }
+  } catch (error) {
+    console.log('⚠️ [CLEANUP] Error cleaning orphaned files:', error.message);
+  }
+}
+
+// NOTE: Cleanup is now handled by the centralized CleanupService in server.js
+// This provides better scheduling, error handling, and logging
 
 module.exports = router;

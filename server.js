@@ -154,6 +154,10 @@ app.get('/docs', (req, res) => {
   res.redirect('/api-docs');
 });
 
+// Serve temporary status images (24hr expiry)
+const path = require('path');
+app.use('/temp', express.static(path.join(__dirname, 'temp')));
+
 // MongoDB-only routes (temporarily minimal for testing)
 console.log('📡 Using MongoDB routes exclusively - MINIMAL MODE');
 app.use('/api/auth', require('./routes/auth/mongodb'));
@@ -168,6 +172,7 @@ app.use('/api/matching', require('./routes/matching-router')); // Matching endpo
 app.use('/api/ai', require('./routes/ai-router')); // AI endpoints
 app.use('/api/communities', require('./routes/communities-router')); // Communities
 app.use('/api/genealogy', require('./routes/genealogy')); // Family Tree/Genealogy
+// app.use('/api/family-community', require('./routes/familyTreeCommunity')); // Family Tree Community Integration - Removed: Users can create communities instead
 
 // TODO: Re-enable other routes after fixing them
 app.use('/api/safety', require('./routes/safety'));
@@ -515,6 +520,42 @@ const startServer = async () => {
   }
 };
 
+// Start the server
 startServer();
+
+// Initialize cleanup service after server starts
+const cleanupService = require('./services/cleanupService');
+
+// Start cleanup service when server is ready
+setTimeout(() => {
+  cleanupService.start();
+}, 5000); // Wait 5 seconds for server to be fully ready
+
+// Add cleanup stats endpoint for monitoring
+app.get('/api/admin/cleanup/stats', (req, res) => {
+  const stats = cleanupService.getStats();
+  res.json({
+    success: true,
+    data: stats
+  });
+});
+
+// Add manual cleanup trigger for admin use
+app.post('/api/admin/cleanup/run', async (req, res) => {
+  try {
+    const stats = await cleanupService.runManualCleanup();
+    res.json({
+      success: true,
+      message: 'Manual cleanup completed',
+      data: stats
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Cleanup failed',
+      error: error.message
+    });
+  }
+});
 
 module.exports = app;

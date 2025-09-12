@@ -6,6 +6,7 @@ const FamilyTree = require('../../models/FamilyTree');
 const FamilyMember = require('../../models/FamilyMember');
 const cloudinary = require('cloudinary').v2;
 const { body, validationResult, param } = require('express-validator');
+const genealogyMatchingService = require('../../services/ai/genealogyMatchingService');
 
 // Validation middleware
 const handleValidationErrors = (req, res, next) => {
@@ -207,12 +208,12 @@ router.get('/trees/:treeId/members',
  *       - bearerAuth: []
  */
 router.post('/trees/:treeId/members',
-  // auth, // Temporarily disabled for testing - REMEMBER TO RE-ENABLE
+  auth,
   upload.single('photo'),
   [
     param('treeId').isMongoId().withMessage('Invalid tree ID'),
     body('firstName').trim().isLength({ min: 1, max: 100 }).withMessage('First name is required'),
-    body('lastName').trim().isLength({ min: 1, max: 100 }).withMessage('Last name is required'),
+    body('lastName').optional().trim().isLength({ max: 100 }).withMessage('Last name must be less than 100 characters'),
     body('gender').isIn(['male', 'female']).withMessage('Gender must be male or female'),
     body('generation').isInt({ min: 0 }).withMessage('Generation must be a non-negative integer')
   ],
@@ -228,15 +229,12 @@ router.post('/trees/:treeId/members',
         });
       }
       
-      // Skip access check when auth is disabled for testing
-      if (req.user) {
-        const access = tree.hasAccess(req.user._id, 'editor');
-        if (!access.hasAccess) {
-          return res.status(403).json({
-            success: false,
-            message: 'Edit access denied'
-          });
-        }
+      const access = tree.hasAccess(req.user._id, 'editor');
+      if (!access.hasAccess) {
+        return res.status(403).json({
+          success: false,
+          message: 'Edit access denied'
+        });
       }
       
       let photoUrl = null;
@@ -270,9 +268,8 @@ router.post('/trees/:treeId/members',
         ...processedBody,
         photo: photoUrl,
         familyTreeId: req.params.treeId,
-        // Use dummy user ID when auth is disabled for testing
-        userId: req.user ? req.user._id : '507f1f77bcf86cd799439011',
-        createdBy: req.user ? req.user._id : '507f1f77bcf86cd799439011'
+        userId: req.user._id,
+        createdBy: req.user._id
       };
       
       const member = new FamilyMember(memberData);
@@ -537,6 +534,337 @@ router.get('/trees/:treeId/stats',
     }
   }
 );
+
+// AI MATCHING & DISCOVERY ENDPOINTS
+
+/**
+ * @swagger
+ * /api/genealogy/discover:
+ *   post:
+ *     summary: Find potential family matches based on user data
+ *     tags: [Genealogy]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/discover', 
+  auth,
+  [
+    body('firstName').optional().trim().isLength({ min: 1 }),
+    body('lastName').optional().trim().isLength({ min: 1 }),
+    body('dateOfBirth').optional().isISO8601(),
+    body('placeOfBirth').optional().trim()
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const userData = {
+        firstName: req.body.firstName,
+        lastName: req.body.lastName,
+        dateOfBirth: req.body.dateOfBirth,
+        placeOfBirth: req.body.placeOfBirth,
+        ...req.body
+      };
+
+      const matches = await FamilyMember.findPotentialMatches(userData);
+      
+      // Filter out trees the user doesn't have access to
+      const accessibleMatches = [];
+      for (const match of matches) {
+        const treeAccess = match.familyTreeId.hasAccess(req.user._id);
+        if (treeAccess.hasAccess || match.visibility === 'public') {
+          accessibleMatches.push({
+            ...match.toObject(),
+            userPermissions: match.getUserPermissions(req.user._id),
+            canClaim: match.canBeClaimed(req.user._id)
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: accessibleMatches,
+        count: accessibleMatches.length
+      });
+    } catch (error) {
+      console.error('Error discovering family matches:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to discover family matches'
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/genealogy/members/{memberId}/claim:
+ *   post:
+ *     summary: Claim a family member
+ *     tags: [Genealogy]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/members/:memberId/claim',
+  auth,
+  [
+    param('memberId').isMongoId().withMessage('Invalid member ID'),
+    body('relationship').isIn(['self', 'parent', 'child', 'sibling', 'spouse', 'relative', 'other']).withMessage('Invalid relationship'),
+    body('evidence').optional().trim().isLength({ max: 1000 }).withMessage('Evidence must be less than 1000 characters')
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const member = await FamilyMember.findById(req.params.memberId).populate('familyTreeId');
+      
+      if (!member) {
+        return res.status(404).json({
+          success: false,
+          message: 'Family member not found'
+        });
+      }
+
+      // Check if tree allows collaboration
+      if (!member.familyTreeId.allowCollaboration) {
+        return res.status(403).json({
+          success: false,
+          message: 'This family tree does not allow collaboration'
+        });
+      }
+
+      try {
+        const claim = member.addClaim(req.user._id, req.body.relationship);
+        
+        if (req.body.evidence) {
+          claim.evidence = req.body.evidence;
+        }
+
+        await member.save();
+
+        // If this is a self-claim, add user as collaborator to the tree
+        if (req.body.relationship === 'self') {
+          await member.familyTreeId.addCollaborator(req.user._id, 'editor', member.createdBy);
+        }
+
+        res.json({
+          success: true,
+          data: {
+            member: member,
+            claim: claim,
+            userPermissions: member.getUserPermissions(req.user._id)
+          },
+          message: 'Family member claimed successfully'
+        });
+      } catch (claimError) {
+        return res.status(400).json({
+          success: false,
+          message: claimError.message
+        });
+      }
+    } catch (error) {
+      console.error('Error claiming family member:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to claim family member'
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/genealogy/members/{memberId}/claims:
+ *   get:
+ *     summary: Get all claims for a family member
+ *     tags: [Genealogy]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/members/:memberId/claims',
+  auth,
+  [param('memberId').isMongoId().withMessage('Invalid member ID')],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const member = await FamilyMember.findById(req.params.memberId)
+        .populate('claimedBy.userId', 'name profileImage')
+        .populate('familyTreeId');
+      
+      if (!member) {
+        return res.status(404).json({
+          success: false,
+          message: 'Family member not found'
+        });
+      }
+
+      // Check access
+      const userPermissions = member.getUserPermissions(req.user._id);
+      if (!userPermissions.canView) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          claims: member.claimedBy,
+          primaryClaimer: member.primaryClaimer,
+          userPermissions: userPermissions
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching claims:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch claims'
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/genealogy/trees/{treeId}/collaborate:
+ *   post:
+ *     summary: Request collaboration on a family tree
+ *     tags: [Genealogy]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/trees/:treeId/collaborate',
+  auth,
+  [
+    param('treeId').isMongoId().withMessage('Invalid tree ID'),
+    body('message').optional().trim().isLength({ max: 500 }).withMessage('Message must be less than 500 characters'),
+    body('relationship').optional().trim().isLength({ max: 100 }).withMessage('Relationship must be less than 100 characters')
+  ],
+  handleValidationErrors,
+  async (req, res) => {
+    try {
+      const tree = await FamilyTree.findById(req.params.treeId).populate('owner', 'name profileImage');
+      
+      if (!tree) {
+        return res.status(404).json({
+          success: false,
+          message: 'Family tree not found'
+        });
+      }
+
+      if (!tree.allowCollaboration) {
+        return res.status(403).json({
+          success: false,
+          message: 'This family tree does not allow collaboration'
+        });
+      }
+
+      // Check if user is already a collaborator
+      const existingCollaboration = tree.collaborators.find(c => c.userId.equals(req.user._id));
+      if (existingCollaboration) {
+        return res.status(400).json({
+          success: false,
+          message: 'You are already a collaborator on this tree'
+        });
+      }
+
+      // Add as viewer for now, owner can upgrade permissions
+      await tree.addCollaborator(req.user._id, 'viewer', req.user._id);
+
+      // TODO: Send notification to tree owner about collaboration request
+      
+      res.json({
+        success: true,
+        message: 'Collaboration request sent successfully'
+      });
+    } catch (error) {
+      console.error('Error requesting collaboration:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to request collaboration'
+      });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/genealogy/my-matches:
+ *   get:
+ *     summary: Get family matches for current user using AI
+ *     tags: [Genealogy]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/my-matches', auth, async (req, res) => {
+  try {
+    // Get AI-enhanced match suggestions
+    const suggestions = await genealogyMatchingService.getMatchSuggestions(req.user._id);
+    
+    res.json({
+      success: true,
+      data: suggestions,
+      count: suggestions.length
+    });
+  } catch (error) {
+    console.error('Error fetching user matches:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch family matches'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/genealogy/ai-research:
+ *   post:
+ *     summary: Run AI research to find new family matches
+ *     tags: [Genealogy]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/ai-research', auth, async (req, res) => {
+  try {
+    // Get user profile data for matching
+    const userProfile = {
+      firstName: req.user.firstName || req.user.name?.split(' ')[0] || '',
+      lastName: req.user.lastName || req.user.name?.split(' ').slice(1).join(' ') || '',
+      name: req.user.name || '',
+      dateOfBirth: req.user.dateOfBirth,
+      placeOfBirth: req.user.placeOfBirth,
+      currentLocation: req.user.currentLocation,
+      bio: req.user.bio,
+      interests: req.user.interests,
+      age: req.user.age
+    };
+
+    console.log(`🔍 Starting AI research for user: ${req.user._id}`);
+    
+    // Find potential family matches using AI
+    const matches = await genealogyMatchingService.findFamilyMatches(req.user._id, userProfile);
+    
+    // Process and store the results
+    await genealogyMatchingService.processMatchResults(req.user._id, matches);
+
+    res.json({
+      success: true,
+      data: {
+        matchesFound: matches.length,
+        highConfidenceMatches: matches.filter(m => m.confidence >= 85).length,
+        mediumConfidenceMatches: matches.filter(m => m.confidence >= 70 && m.confidence < 85).length,
+        matches: matches.slice(0, 10) // Return top 10 matches
+      },
+      message: `AI research completed. Found ${matches.length} potential family connections.`
+    });
+
+  } catch (error) {
+    console.error('Error running AI research:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to run AI family research'
+    });
+  }
+});
 
 /**
  * @swagger

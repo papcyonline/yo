@@ -25,7 +25,7 @@ const statusSchema = new mongoose.Schema({
     style: {
       background_color: {
         type: String,
-        default: '#0091ad',
+        default: '#04a7c7',
         maxlength: 7 // hex color
       },
       font_size: {
@@ -33,6 +33,21 @@ const statusSchema = new mongoose.Schema({
         default: 18,
         min: 12,
         max: 40
+      },
+      text_color: {
+        type: String,
+        default: '#FFFFFF',
+        maxlength: 7 // hex color
+      },
+      font_family: {
+        type: String,
+        default: 'System',
+        maxlength: 50
+      },
+      text_alignment: {
+        type: String,
+        enum: ['left', 'center', 'right'],
+        default: 'center'
       }
     }
   },
@@ -54,6 +69,8 @@ const statusSchema = new mongoose.Schema({
     image_width: Number,
     image_height: Number,
     file_size: Number, // in bytes
+    file_path: String, // Local temporary file path for cleanup
+    created_at: { type: Date, default: Date.now }, // For cleanup scheduling
     // Audio fields
     audio_url: {
       type: String,

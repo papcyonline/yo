@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
+const { PrivacySettings, User } = require('../models');
 
 // Terms of Service endpoint
 router.get('/terms-of-service', (req, res) => {
@@ -89,47 +90,195 @@ router.get('/about', (req, res) => {
 });
 
 // Preferences endpoints (protected)
-router.get('/preferences', authMiddleware, (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      preferences: {
-        dark_mode: true,
-        notifications_enabled: true,
-        location_enabled: false,
-        language: 'en',
-        privacy_level: 'friends'
-      }
+router.get('/preferences', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    console.log('⚙️ Loading user preferences for:', userId);
+    
+    // Get user data with preferences
+    const user = await User.findById(userId).select(
+      'notification_preferences privacy_settings preferred_language timezone'
+    );
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
     }
-  });
+    
+    // Return preferences in expected format
+    const preferences = {
+      dark_mode: false, // This would come from theme settings if implemented
+      notifications_enabled: user.notification_preferences?.push || true,
+      location_enabled: user.privacy_settings?.show_location || false,
+      language: user.preferred_language || 'en',
+      privacy_level: 'friends',
+      email_notifications: user.notification_preferences?.email || true,
+      push_notifications: user.notification_preferences?.push || true,
+      sms_notifications: user.notification_preferences?.sms || false,
+      match_notifications: true,
+      community_notifications: true,
+      message_notifications: true
+    };
+    
+    console.log('✅ Preferences loaded:', preferences);
+    
+    res.json({
+      success: true,
+      data: { preferences }
+    });
+  } catch (error) {
+    console.error('❌ Error loading preferences:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to load preferences',
+      error: error.message
+    });
+  }
 });
 
-router.put('/preferences', authMiddleware, (req, res) => {
-  res.json({
-    success: true,
-    message: 'Preferences updated successfully'
-  });
+router.put('/preferences', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const updates = req.body;
+    
+    console.log('🔄 Updating user preferences for:', userId);
+    console.log('📝 Preference updates:', updates);
+    
+    // Map frontend preference keys to User model fields
+    const userUpdates = {};
+    
+    if (updates.notifications_enabled !== undefined) {
+      userUpdates['notification_preferences.push'] = updates.notifications_enabled;
+    }
+    if (updates.email_notifications !== undefined) {
+      userUpdates['notification_preferences.email'] = updates.email_notifications;
+    }
+    if (updates.sms_notifications !== undefined) {
+      userUpdates['notification_preferences.sms'] = updates.sms_notifications;
+    }
+    if (updates.location_enabled !== undefined) {
+      userUpdates['privacy_settings.show_location'] = updates.location_enabled;
+    }
+    if (updates.language !== undefined) {
+      userUpdates.preferred_language = updates.language;
+    }
+    
+    console.log('📊 Mapped user updates:', userUpdates);
+    
+    // Update user preferences
+    await User.findByIdAndUpdate(userId, userUpdates, { runValidators: true });
+    
+    console.log('✅ Preferences updated successfully');
+    
+    res.json({
+      success: true,
+      message: 'Preferences updated successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error updating preferences:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update preferences',
+      error: error.message
+    });
+  }
 });
 
 // Privacy settings endpoints (protected)
-router.get('/privacy', authMiddleware, (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      privacy_settings: {
-        profile_visibility: 'friends',
-        location_sharing: 'none',
-        show_online_status: true
+router.get('/privacy', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    console.log('🔒 Loading privacy settings for user:', userId);
+    
+    // Get or create privacy settings for the user
+    const privacySettings = await PrivacySettings.getOrCreate(userId);
+    
+    console.log('✅ Privacy settings loaded:', privacySettings);
+    
+    // Return settings in the format expected by frontend
+    res.json({
+      success: true,
+      data: {
+        privacySettings: {
+          profile_visibility: privacySettings.profile_visibility,
+          show_online_status: privacySettings.show_online_status,
+          show_last_seen: privacySettings.show_last_seen,
+          allow_friend_requests: privacySettings.allow_friend_requests,
+          allow_message_requests: privacySettings.allow_message_requests,
+          share_location: privacySettings.share_location,
+          show_phone_number: privacySettings.show_phone_number,
+          show_email: privacySettings.show_email,
+          allow_tagging: privacySettings.allow_tagging,
+          data_analytics: privacySettings.data_analytics,
+          ad_personalization: privacySettings.ad_personalization
+        }
       }
-    }
-  });
+    });
+  } catch (error) {
+    console.error('❌ Error loading privacy settings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to load privacy settings',
+      error: error.message
+    });
+  }
 });
 
-router.put('/privacy', authMiddleware, (req, res) => {
-  res.json({
-    success: true,
-    message: 'Privacy settings updated successfully'
-  });
+router.put('/privacy', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const updates = req.body;
+    
+    console.log('🔄 Updating privacy settings for user:', userId);
+    console.log('📝 Privacy settings updates:', updates);
+    
+    // Validate allowed fields
+    const allowedFields = [
+      'profile_visibility', 'show_online_status', 'show_last_seen',
+      'allow_friend_requests', 'allow_message_requests', 'share_location',
+      'show_phone_number', 'show_email', 'allow_tagging', 
+      'data_analytics', 'ad_personalization'
+    ];
+    
+    const filteredUpdates = {};
+    Object.keys(updates).forEach(key => {
+      if (allowedFields.includes(key)) {
+        filteredUpdates[key] = updates[key];
+      }
+    });
+    
+    console.log('✅ Filtered updates:', filteredUpdates);
+    
+    // Update privacy settings
+    const updatedSettings = await PrivacySettings.findOneAndUpdate(
+      { user_id: userId },
+      filteredUpdates,
+      { 
+        new: true, 
+        upsert: true,
+        runValidators: true 
+      }
+    );
+    
+    console.log('🎉 Privacy settings updated successfully:', updatedSettings);
+    
+    res.json({
+      success: true,
+      message: 'Privacy settings updated successfully',
+      data: {
+        privacySettings: updatedSettings
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error updating privacy settings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update privacy settings',
+      error: error.message
+    });
+  }
 });
 
 // Security settings endpoints (protected)
@@ -154,6 +303,78 @@ router.put('/security', authMiddleware, (req, res) => {
     success: true,
     message: 'Security settings updated successfully'
   });
+});
+
+// Data download request endpoint
+router.post('/data-download', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const userEmail = req.user.email;
+    
+    console.log('📥 Data download requested by user:', userId);
+    
+    // In a real implementation, you would:
+    // 1. Queue a background job to compile user data
+    // 2. Send an email notification when ready
+    // 3. Store the request in a database
+    
+    // For now, we'll simulate the request
+    console.log('🔄 Processing data download request for:', userEmail);
+    
+    res.json({
+      success: true,
+      message: 'Data download request received. You will receive an email within 48 hours.',
+      data: {
+        downloadRequest: {
+          requestId: `download_${userId}_${Date.now()}`,
+          requestedAt: new Date().toISOString(),
+          email: userEmail,
+          status: 'pending',
+          estimatedCompletionTime: '48 hours'
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error processing data download request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process data download request',
+      error: error.message
+    });
+  }
+});
+
+// Account deactivation endpoint
+router.post('/deactivate', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { reason, customReason } = req.body;
+    
+    console.log('⚠️ Account deactivation requested by user:', userId);
+    console.log('📝 Reason:', reason, customReason);
+    
+    // Update user account to deactivated status
+    await User.findByIdAndUpdate(userId, {
+      is_active: false,
+      deactivated_at: new Date(),
+      deactivation_reason: reason,
+      custom_deactivation_reason: customReason
+    });
+    
+    console.log('✅ Account deactivated successfully');
+    
+    res.json({
+      success: true,
+      message: 'Account deactivated successfully. You can reactivate anytime by logging back in.'
+    });
+  } catch (error) {
+    console.error('❌ Error deactivating account:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to deactivate account',
+      error: error.message
+    });
+  }
 });
 
 // FAQ endpoint (public)
