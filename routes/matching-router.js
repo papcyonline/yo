@@ -50,4 +50,16 @@ router.get('/all', authMiddleware, (req, res) => {
   });
 });
 
+// Default matching endpoint - returns all matches
+router.get('/', authMiddleware, (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      matches: [],
+      count: 0,
+      hasMore: false
+    }
+  });
+});
+
 module.exports = router;

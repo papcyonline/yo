@@ -209,7 +209,16 @@
       "Bash(PORT=3035 npm start)",
       "Bash(set PORT=3025)",
       "Bash(PORT=8090 npx expo start --clear --port 8090)",
-      "Bash(PORT=8092 npx expo start --clear --port 8092)"
+      "Bash(PORT=8092 npx expo start --clear --port 8092)",
+      "Bash(PORT=3030 node server.js)",
+      "Bash(PORT=3040 node server.js)",
+      "Bash(PORT=8095 npx expo start --clear --port 8095)",
+      "Bash(PORT=3050 node server.js)",
+      "Bash(PORT=3099 node server.js)",
+      "Bash(PORT=3070 node server.js)",
+      "Bash(ping:*)",
+      "Bash(PORT=8090 npx expo start --port 8090 --clear)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": [],

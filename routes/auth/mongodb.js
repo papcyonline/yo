@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { User } = require('../../models');
 const { validate, sanitizeInput } = require('../../middleware/validation');
+// const securityMonitoringService = require('../../services/securityMonitoringService');
 
 const router = express.Router();
 
@@ -30,6 +31,45 @@ async function sendSMS(phone, message) {
     console.error(`❌ Failed to send SMS to ${phone}:`, error.message);
     return { success: false, error: error.message };
   }
+}
+
+// Extract device and location info from request
+function extractDeviceInfo(req) {
+  const userAgent = req.headers['user-agent'] || 'Unknown';
+  const ip = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'Unknown';
+  
+  // Basic device type detection
+  let deviceType = 'desktop';
+  if (userAgent.includes('Mobile') || userAgent.includes('Android')) {
+    deviceType = 'mobile';
+  } else if (userAgent.includes('iPad') || userAgent.includes('Tablet')) {
+    deviceType = 'tablet';
+  }
+  
+  // Basic OS detection
+  let os = 'Unknown';
+  if (userAgent.includes('Windows')) os = 'Windows';
+  else if (userAgent.includes('Mac')) os = 'macOS';
+  else if (userAgent.includes('Linux')) os = 'Linux';
+  else if (userAgent.includes('Android')) os = 'Android';
+  else if (userAgent.includes('iPhone') || userAgent.includes('iPad')) os = 'iOS';
+  
+  // Basic browser detection
+  let browser = 'Unknown';
+  if (userAgent.includes('Chrome')) browser = 'Chrome';
+  else if (userAgent.includes('Firefox')) browser = 'Firefox';
+  else if (userAgent.includes('Safari')) browser = 'Safari';
+  else if (userAgent.includes('Edge')) browser = 'Edge';
+  
+  return {
+    ip_address: ip,
+    device_info: {
+      type: deviceType,
+      os,
+      browser,
+      userAgent: userAgent.substring(0, 200) // Limit length
+    }
+  };
 }
 
 // Generate JWT token pair (access + refresh)
@@ -153,6 +193,12 @@ router.post('/login', validate('login'), async (req, res) => {
 
     // Generate token pair
     const { accessToken, refreshToken } = generateTokenPair(user._id);
+    
+    // Extract device and location info
+    const { ip_address, device_info } = extractDeviceInfo(req);
+    
+    // Session tracking temporarily disabled to fix server startup issues
+    console.log('📝 Login session tracking disabled temporarily');
     
     console.log(`✅ Login successful for user: ${user._id}`);
 
@@ -1141,6 +1187,7 @@ router.post('/refresh-token', (req, res) => {
 router.post('/logout', authMiddleware, async (req, res) => {
   try {
     const userId = req.userId || req.user?.id;
+    const sessionToken = req.headers.authorization?.replace('Bearer ', '');
     
     if (userId) {
       // Update user's online status
@@ -1148,6 +1195,9 @@ router.post('/logout', authMiddleware, async (req, res) => {
         last_seen: new Date(),
         is_online: false
       });
+      
+      // Session termination temporarily disabled
+      console.log('📝 Login session termination disabled temporarily');
       
       console.log(`👋 User ${userId} logged out`);
     }

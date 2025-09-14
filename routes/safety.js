@@ -3,64 +3,20 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const { ObjectId } = mongoose.Types;
 const { contentModerationService } = require('../services/contentModerationService');
+const authMiddleware = require('../middleware/auth');
+const { BlockedUser, Report, User } = require('../models');
 
-// Define schemas
-const BlockedUserSchema = new mongoose.Schema({
-  userId: { type: ObjectId, required: true, ref: 'User' },
-  blockedUserId: { type: ObjectId, required: true, ref: 'User' },
-  blockedUserName: { type: String, required: true },
-  blockedUserPhoto: { type: String },
-  reason: { type: String },
-  blockedAt: { type: Date, default: Date.now }
-});
+// Report schema is already defined in models/Report.js
 
-const ReportSchema = new mongoose.Schema({
-  reporterId: { type: ObjectId, required: true, ref: 'User' },
-  reportedUserId: { type: ObjectId, required: true, ref: 'User' },
-  reason: { 
-    type: String, 
-    enum: ['spam', 'harassment', 'inappropriate_content', 'fake_profile', 'other'],
-    required: true 
-  },
-  description: { type: String, required: true },
-  evidence: {
-    messageId: { type: ObjectId },
-    screenshot: { type: String }
-  },
-  status: { 
-    type: String, 
-    enum: ['pending', 'reviewed', 'resolved', 'dismissed'],
-    default: 'pending'
-  },
-  adminNotes: { type: String },
-  reportedAt: { type: Date, default: Date.now },
-  resolvedAt: { type: Date }
-});
+// Models are imported from ../models
 
-// Create indexes for better performance
-BlockedUserSchema.index({ userId: 1, blockedUserId: 1 }, { unique: true });
-BlockedUserSchema.index({ userId: 1 });
-ReportSchema.index({ reporterId: 1 });
-ReportSchema.index({ reportedUserId: 1 });
-ReportSchema.index({ status: 1 });
-
-// Check if models already exist to prevent OverwriteModelError
-const BlockedUser = mongoose.models.BlockedUser || mongoose.model('BlockedUser', BlockedUserSchema);
-const Report = mongoose.models.Report || mongoose.model('Report', ReportSchema);
-
-// Middleware to require authentication
-const requireAuth = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({ success: false, message: 'Authentication required' });
-  }
-  next();
-};
+// Using the standard auth middleware
 
 // Block a user
-router.post('/block', requireAuth, async (req, res) => {
+router.post('/block', authMiddleware, async (req, res) => {
   try {
     const { userId, reason } = req.body;
-    const blockerId = req.user.id || req.user._id;
+    const blockerId = req.user._id;
 
     if (!userId) {
       return res.status(400).json({ success: false, message: 'User ID is required' });
@@ -71,34 +27,23 @@ router.post('/block', requireAuth, async (req, res) => {
     }
 
     // Get user info for the blocked user
-    const User = mongoose.model('User');
-    const blockedUser = await User.findById(userId).select('fullName username profile_photo_url');
-    
+    const blockedUser = await User.findById(userId).select('first_name last_name username profile_picture_url');
+
     if (!blockedUser) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    // Create blocked user record
-    const blockedRecord = new BlockedUser({
-      userId: blockerId,
-      blockedUserId: userId,
-      blockedUserName: blockedUser.fullName || blockedUser.username,
-      blockedUserPhoto: blockedUser.profile_photo_url,
-      reason
+    // Use the BlockedUser model's static method
+    const blockedRecord = await BlockedUser.blockUser(blockerId, userId, reason, '');
+
+    // Remove any existing friend connections
+    const { FriendRequest } = require('../models');
+    await FriendRequest.deleteMany({
+      $or: [
+        { sender_id: blockerId, receiver_id: userId },
+        { sender_id: userId, receiver_id: blockerId }
+      ]
     });
-
-    await blockedRecord.save();
-
-    // Also remove any existing friend connections
-    const Connection = mongoose.model('Connection');
-    if (Connection) {
-      await Connection.deleteMany({
-        $or: [
-          { requester: blockerId, recipient: userId },
-          { requester: userId, recipient: blockerId }
-        ]
-      });
-    }
 
     console.log(`✅ User ${blockerId} blocked user ${userId}`);
 
@@ -107,7 +52,7 @@ router.post('/block', requireAuth, async (req, res) => {
       message: 'User blocked successfully',
       data: {
         blockedUserId: userId,
-        blockedUserName: blockedRecord.blockedUserName
+        blockedUserName: `${blockedUser.first_name} ${blockedUser.last_name}`.trim() || blockedUser.username
       }
     });
 
@@ -123,18 +68,18 @@ router.post('/block', requireAuth, async (req, res) => {
 });
 
 // Unblock a user
-router.delete('/block/:userId', requireAuth, async (req, res) => {
+router.delete('/block/:userId', authMiddleware, async (req, res) => {
   try {
     const { userId } = req.params;
-    const unblockerId = req.user.id || req.user._id;
+    const unblockerId = req.user._id;
 
-    const result = await BlockedUser.deleteOne({
-      userId: unblockerId,
-      blockedUserId: userId
-    });
-
-    if (result.deletedCount === 0) {
-      return res.status(404).json({ success: false, message: 'User is not blocked' });
+    try {
+      await BlockedUser.unblockUser(unblockerId, userId);
+    } catch (error) {
+      if (error.message === 'User is not blocked') {
+        return res.status(404).json({ success: false, message: 'User is not blocked' });
+      }
+      throw error;
     }
 
     console.log(`✅ User ${unblockerId} unblocked user ${userId}`);
@@ -151,25 +96,23 @@ router.delete('/block/:userId', requireAuth, async (req, res) => {
 });
 
 // Get blocked users
-router.get('/blocked', requireAuth, async (req, res) => {
+router.get('/blocked', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id || req.user._id;
+    const userId = req.user._id;
 
-    const blockedUsers = await BlockedUser.find({ userId })
-      .sort({ blockedAt: -1 })
-      .lean();
+    const blockedUsers = await BlockedUser.getBlockedUsers(userId);
 
     res.json({
       success: true,
       data: {
         blockedUsers: blockedUsers.map(blocked => ({
           id: blocked._id,
-          userId: blocked.userId,
-          blockedUserId: blocked.blockedUserId,
-          blockedUserName: blocked.blockedUserName,
-          blockedUserPhoto: blocked.blockedUserPhoto,
+          userId: blocked.blocker,
+          blockedUserId: blocked.blocked._id,
+          blockedUserName: `${blocked.blocked.first_name} ${blocked.blocked.last_name}`.trim() || blocked.blocked.username,
+          blockedUserPhoto: blocked.blocked.profilePictureUrl,
           reason: blocked.reason,
-          blockedAt: blocked.blockedAt
+          blockedAt: blocked.createdAt
         }))
       }
     });
@@ -181,10 +124,10 @@ router.get('/blocked', requireAuth, async (req, res) => {
 });
 
 // Report a user
-router.post('/report', requireAuth, async (req, res) => {
+router.post('/report', authMiddleware, async (req, res) => {
   try {
     const { reportedUserId, reason, description, evidence } = req.body;
-    const reporterId = req.user.id || req.user._id;
+    const reporterId = req.user._id;
 
     if (!reportedUserId || !reason || !description) {
       return res.status(400).json({ 
@@ -198,7 +141,6 @@ router.post('/report', requireAuth, async (req, res) => {
     }
 
     // Verify reported user exists
-    const User = mongoose.model('User');
     const reportedUser = await User.findById(reportedUserId);
     
     if (!reportedUser) {
@@ -207,11 +149,11 @@ router.post('/report', requireAuth, async (req, res) => {
 
     // Create report
     const report = new Report({
-      reporterId,
-      reportedUserId,
-      reason,
+      reporter: reporterId,
+      reported: reportedUserId,
+      type: reason,
       description: description.trim(),
-      evidence
+      evidence: evidence ? [evidence] : []
     });
 
     await report.save();
@@ -236,21 +178,17 @@ router.post('/report', requireAuth, async (req, res) => {
 });
 
 // Check if user is blocked (utility endpoint)
-router.get('/is-blocked/:userId', requireAuth, async (req, res) => {
+router.get('/is-blocked/:userId', authMiddleware, async (req, res) => {
   try {
     const { userId } = req.params;
-    const checkerId = req.user.id || req.user._id;
+    const checkerId = req.user._id;
 
-    const isBlocked = await BlockedUser.findOne({
-      userId: checkerId,
-      blockedUserId: userId
-    });
+    const isBlocked = await BlockedUser.isBlocked(checkerId, userId);
 
     res.json({
       success: true,
       data: {
-        isBlocked: !!isBlocked,
-        blockedAt: isBlocked ? isBlocked.blockedAt : null
+        isBlocked: isBlocked
       }
     });
 
@@ -261,14 +199,16 @@ router.get('/is-blocked/:userId', requireAuth, async (req, res) => {
 });
 
 // Get blocking statistics (for user)
-router.get('/stats', requireAuth, async (req, res) => {
+router.get('/stats', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id || req.user._id;
+    const userId = req.user._id;
 
-    const [blockedCount, reportsSubmitted] = await Promise.all([
-      BlockedUser.countDocuments({ userId }),
-      Report.countDocuments({ reporterId: userId })
-    ]);
+    const [blockedUsers, reportsSubmitted] = await Promise.all([
+      BlockedUser.getBlockedUsers(userId),
+      Report.countDocuments({ reporter: userId })
+    });
+
+    const blockedCount = blockedUsers.length;
 
     res.json({
       success: true,
@@ -287,11 +227,12 @@ router.get('/stats', requireAuth, async (req, res) => {
 // Middleware to filter blocked users from results
 const filterBlockedUsers = async (userId, userIds) => {
   try {
-    const blockedUsers = await BlockedUser.find({ 
-      userId,
-      blockedUserId: { $in: userIds }
-    }).distinct('blockedUserId');
-    
+    const blockedUsers = await BlockedUser.find({
+      blocker: userId,
+      blocked: { $in: userIds },
+      isActive: true
+    }).distinct('blocked');
+
     return userIds.filter(id => !blockedUsers.some(blocked => blocked.toString() === id.toString()));
   } catch (error) {
     console.error('❌ Filter blocked users error:', error);
@@ -302,7 +243,7 @@ const filterBlockedUsers = async (userId, userIds) => {
 // ==================== CONTENT MODERATION ENDPOINTS ====================
 
 // Get content moderation statistics (admin)
-router.get('/moderation/stats', requireAuth, async (req, res) => {
+router.get('/moderation/stats', authMiddleware, async (req, res) => {
   try {
     const stats = contentModerationService.getModerationStats();
     
@@ -331,7 +272,7 @@ router.get('/moderation/stats', requireAuth, async (req, res) => {
 });
 
 // Test content moderation
-router.post('/moderation/test', requireAuth, async (req, res) => {
+router.post('/moderation/test', authMiddleware, async (req, res) => {
   try {
     const { content, contentType = 'text' } = req.body;
 
@@ -359,7 +300,7 @@ router.post('/moderation/test', requireAuth, async (req, res) => {
 });
 
 // Enable/disable content moderation (admin only)
-router.post('/moderation/toggle', requireAuth, async (req, res) => {
+router.post('/moderation/toggle', authMiddleware, async (req, res) => {
   try {
     // TODO: Add admin role check here
     const { enabled } = req.body;
@@ -384,7 +325,7 @@ router.post('/moderation/toggle', requireAuth, async (req, res) => {
 });
 
 // Add profanity word (admin only)
-router.post('/moderation/profanity', requireAuth, async (req, res) => {
+router.post('/moderation/profanity', authMiddleware, async (req, res) => {
   try {
     // TODO: Add admin role check here
     const { word } = req.body;
@@ -413,7 +354,7 @@ router.post('/moderation/profanity', requireAuth, async (req, res) => {
 });
 
 // Remove profanity word (admin only)
-router.delete('/moderation/profanity/:word', requireAuth, async (req, res) => {
+router.delete('/moderation/profanity/:word', authMiddleware, async (req, res) => {
   try {
     // TODO: Add admin role check here
     const { word } = req.params;

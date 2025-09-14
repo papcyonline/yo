@@ -35,6 +35,9 @@ const authMiddleware = async (req, res, next) => {
 
     req.user = user.toObject();
     req.userId = user._id.toString();
+    
+    // Session activity tracking temporarily disabled
+    
     next();
 
   } catch (error) {

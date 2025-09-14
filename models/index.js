@@ -12,6 +12,11 @@ const FamilyMember = require('./FamilyMember');
 const Community = require('./Community');
 const CommunityMembership = require('./CommunityMembership');
 const PrivacySettings = require('./PrivacySettings');
+const SecuritySettings = require('./SecuritySettings');
+const LoginSession = require('./LoginSession');
+const FAQ = require('./FAQ');
+const Feedback = require('./Feedback');
+const SupportTicket = require('./SupportTicket');
 
 module.exports = {
   User,
@@ -27,5 +32,10 @@ module.exports = {
   FamilyMember,
   Community,
   CommunityMembership,
-  PrivacySettings
+  PrivacySettings,
+  SecuritySettings,
+  LoginSession,
+  FAQ,
+  Feedback,
+  SupportTicket
 };

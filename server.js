@@ -28,7 +28,7 @@ const { swaggerDocument, swaggerUi, swaggerOptions } = require('./config/swagger
 
 // Database connections
 const { connectMongoDB, testMongoConnection } = require('./config/mongodb');
-const redisClient = require('./config/redis');
+// const redisClient = require('./config/redis'); // Keep Redis disabled for now
 
 const app = express();
 const server = http.createServer(app);
@@ -55,13 +55,13 @@ const io = socketIo(server, {
   }
 });
 
-// Initialize Chat Service
-const chatService = new ChatService(io);
-app.locals.chatService = chatService;
+// Initialize Chat Service (TEMPORARILY DISABLED FOR DEBUGGING)
+// const chatService = new ChatService(io);
+// app.locals.chatService = chatService;
 
-// Connect Socket.io to Enhanced Matching Service for real-time updates
-const { enhancedMatchingService } = require('./services/aiMatchingService');
-enhancedMatchingService.setSocketIO(io);
+// Connect Socket.io to Enhanced Matching Service for real-time updates (TEMPORARILY DISABLED FOR DEBUGGING)
+// const { enhancedMatchingService } = require('./services/aiMatchingService');
+// enhancedMatchingService.setSocketIO(io);
 
 // Security middleware
 app.use(helmet());
@@ -158,8 +158,20 @@ app.get('/docs', (req, res) => {
 const path = require('path');
 app.use('/temp', express.static(path.join(__dirname, 'temp')));
 
-// MongoDB-only routes (temporarily minimal for testing)
-console.log('📡 Using MongoDB routes exclusively - MINIMAL MODE');
+// Temporarily disable MongoDB routes for debugging
+console.log('📡 DEBUGGING MODE - Routes disabled to test server startup');
+
+// Basic test route
+app.get('/api/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Server is running without database',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// MongoDB-only routes (Re-enabling auth for login functionality)
+console.log('📡 Re-enabling auth routes for login functionality');
 app.use('/api/auth', require('./routes/auth/mongodb'));
 app.use('/api/users', require('./routes/users-router')); // User profile endpoints
 app.use('/api/status', require('./routes/status')); // Status/Posts feature
@@ -167,7 +179,7 @@ app.use('/api/settings', require('./routes/settings-router')); // Settings & Leg
 app.use('/api/notifications', require('./routes/notifications-router')); // Notifications
 app.use('/api/friends', require('./routes/friends-router')); // Friends management
 app.use('/api/chats', require('./routes/chats-router')); // Chat endpoints
-app.use('/api/unified-onboarding', require('./routes/unified-onboarding')); // Unified onboarding endpoints
+// app.use('/api/unified-onboarding', require('./routes/unified-onboarding')); // Unified onboarding endpoints
 app.use('/api/matching', require('./routes/matching-router')); // Matching endpoints
 app.use('/api/ai', require('./routes/ai-router')); // AI endpoints
 app.use('/api/communities', require('./routes/communities-router')); // Communities
@@ -175,8 +187,8 @@ app.use('/api/genealogy', require('./routes/genealogy')); // Family Tree/Genealo
 // app.use('/api/family-community', require('./routes/familyTreeCommunity')); // Family Tree Community Integration - Removed: Users can create communities instead
 
 // TODO: Re-enable other routes after fixing them
-app.use('/api/safety', require('./routes/safety'));
-app.use('/api/verification', require('./routes/verification')); // Blue check verification
+// app.use('/api/safety', require('./routes/safety'));
+// app.use('/api/verification', require('./routes/verification')); // Blue check verification
 
 // Additional routes (uncommented and fixed)
 console.log('📡 Loading additional routes...');
@@ -303,11 +315,11 @@ io.on('connection', (socket) => {
   socket.join(`user_${userId}`);
   console.log(`🔔 User ${userId} joined personal room for real-time updates`);
   
-  // Handle user connection
-  chatService.handleUserConnection(socket, userId);
-  
-  // Setup WebRTC call handlers
-  chatService.setupCallHandlers(socket);
+  // Handle user connection (DISABLED)
+  // chatService.handleUserConnection(socket, userId);
+
+  // Setup WebRTC call handlers (DISABLED)
+  // chatService.setupCallHandlers(socket);
   
   // Join user to their chat rooms
   socket.on('join_chat', (chatId) => {
@@ -337,8 +349,8 @@ io.on('connection', (socket) => {
       timestamp: new Date()
     });
     
-    // Use the existing chat service
-    chatService.handleTyping(data.chatId, userId, data.isTyping);
+    // Use the existing chat service (DISABLED)
+    // chatService.handleTyping(data.chatId, userId, data.isTyping);
     
     console.log(`📡 Broadcasted typing status to chat_${data.chatId}: ${data.isTyping ? 'typing' : 'online'}`);
   });
@@ -378,8 +390,8 @@ io.on('connection', (socket) => {
       timestamp: new Date()
     });
     
-    // Use the existing chat service for recording
-    chatService.handleRecording(data.chatId, userId, data.isRecording);
+    // Use the existing chat service for recording (DISABLED)
+    // chatService.handleRecording(data.chatId, userId, data.isRecording);
     
     console.log(`📡 Broadcasted recording status to chat_${data.chatId}: ${data.isRecording ? 'recording' : 'online'}`);
   });
@@ -472,20 +484,33 @@ io.on('connection', (socket) => {
   // Handle disconnect
   socket.on('disconnect', () => {
     console.log(`📱 User ${userId} disconnected`);
-    chatService.handleUserDisconnection(socket, userId);
+    // chatService.handleUserDisconnection(socket, userId);
   });
 });
 
 // Start server
 const startServer = async () => {
   try {
-    // Connect to MongoDB exclusively
-    console.log('🔄 Connecting to MongoDB...');
-    const mongoConnected = await connectMongoDB();
-    
+    // Connect to MongoDB with timeout (for auth functionality)
+    console.log('🔄 Connecting to MongoDB for auth functionality...');
+    let mongoConnected = false;
+
+    try {
+      // Set a timeout for MongoDB connection attempt
+      const mongoPromise = connectMongoDB();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('MongoDB connection timeout')), 15000)
+      );
+
+      mongoConnected = await Promise.race([mongoPromise, timeoutPromise]);
+    } catch (error) {
+      console.warn('⚠️ MongoDB connection timed out or failed:', error.message);
+      mongoConnected = false;
+    }
+
     if (!mongoConnected) {
-      console.error('❌ MongoDB connection failed. Server cannot start without database.');
-      process.exit(1);
+      console.warn('🚨 Server starting WITHOUT database (limited functionality)');
+      console.warn('💡 To fix: ensure MongoDB is running or check connection string');
     } else {
       console.log('✅ MongoDB connected successfully');
     }

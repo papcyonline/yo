@@ -3,28 +3,47 @@ const mongoose = require('mongoose');
 // MongoDB connection configuration
 const connectMongoDB = async () => {
   try {
-    // MongoDB connection string - supports local and cloud
-    const mongoUri = process.env.MONGODB_URI || 
-                     process.env.MONGODB_ATLAS_URI || 
-                     'mongodb://127.0.0.1:27017/yofam';
-    
+    // First try cloud connection, then fall back to local
+    let mongoUri = process.env.MONGODB_URI || process.env.MONGODB_ATLAS_URI;
+
     const options = {
       maxPoolSize: 10,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
+      connectTimeoutMS: 10000,
     };
 
-    console.log('🔗 Connecting to MongoDB...');
-    console.log('📍 URI:', mongoUri);
-    
-    await mongoose.connect(mongoUri, options);
-    
-    console.log('✅ MongoDB connected successfully');
+    console.log('🔗 Attempting MongoDB connection...');
+
+    if (mongoUri) {
+      console.log('📍 Trying cloud URI first...');
+      try {
+        await mongoose.connect(mongoUri, options);
+        console.log('✅ MongoDB Cloud connected successfully');
+        console.log('📊 Database:', mongoose.connection.name);
+        return true;
+      } catch (cloudError) {
+        console.warn('⚠️ Cloud MongoDB connection failed:', cloudError.message);
+        console.log('🔄 Falling back to local MongoDB...');
+      }
+    }
+
+    // Fallback to local MongoDB
+    mongoUri = 'mongodb://127.0.0.1:27017/yofam';
+    console.log('📍 Connecting to local MongoDB:', mongoUri);
+
+    await mongoose.connect(mongoUri, {
+      ...options,
+      serverSelectionTimeoutMS: 5000,
+    });
+
+    console.log('✅ Local MongoDB connected successfully');
     console.log('📊 Database:', mongoose.connection.name);
-    
+
     return true;
   } catch (error) {
-    console.error('❌ MongoDB connection failed:', error.message);
+    console.error('❌ All MongoDB connections failed:', error.message);
+    console.warn('🚨 Server will continue without database (limited functionality)');
     return false;
   }
 };
